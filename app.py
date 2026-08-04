@@ -347,7 +347,7 @@ if len(valid_scatter):
     )
     labels = (
         alt.Chart(plot_scatter.nlargest(min(65, len(plot_scatter)), "balance"))
-        .mark_text(align="left", dx=8, dy=-7, font="SimHei", fontSize=10, color="#111111")
+        .mark_text(align="left", dx=8, dy=-7, fontSize=10, color="#111111")
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
     boundary = pd.DataFrame({"x": [-4.0, -2.1, -1.8, 1.8], "y": [0, 96, 90, 38]})
@@ -358,7 +358,7 @@ if len(valid_scatter):
         + labels
         + alt.Chart(boundary).mark_line(color="#111111", strokeDash=[10, 5], strokeWidth=1.8).encode(x=axis_x, y=axis_y)
         + alt.Chart(payoff_curve).mark_line(color="#E3A200", strokeWidth=2.6, interpolate="monotone").encode(x=axis_x, y=axis_y)
-        + alt.Chart(annotation).mark_text(font="SimHei", fontSize=16, fontStyle="italic", color="#D65245", angle=-20).encode(x=axis_x, y=axis_y, text="text:N")
+        + alt.Chart(annotation).mark_text(fontSize=16, color="#D65245", angle=-20).encode(x=axis_x, y=axis_y, text="text:N")
     ).properties(height=610).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
