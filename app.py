@@ -21,6 +21,22 @@ ORANGE = "#E99A2F"
 RED = "#C94B55"
 PAPER = "#F4F7FB"
 
+# The orange curve is the independent lower-right value boundary.  It is not
+# derived from, or enclosed by, the three black valuation structure lines.
+VALUE_CURVE = [
+    (-3.4, 0.0), (-2.5, 1.0), (-1.5, 2.0), (-0.5, 4.0),
+    (0.3, 8.0), (0.9, 15.0), (1.5, 25.0), (2.1, 38.0),
+]
+
+
+def value_curve_limit(values: pd.Series) -> pd.Series:
+    """Return the piecewise-linear premium ceiling of the orange curve."""
+    limits = pd.Series(float("nan"), index=values.index, dtype="float64")
+    for (x0, y0), (x1, y1) in zip(VALUE_CURVE[:-1], VALUE_CURVE[1:]):
+        segment = values.between(x0, x1)
+        limits.loc[segment] = y0 + (values.loc[segment] - x0) * (y1 - y0) / (x1 - x0)
+    return limits
+
 st.markdown(
     """
     <style>
@@ -398,17 +414,14 @@ if len(valid_scatter):
             ],
         )
     )
-    label_lower_edge = (plot_scatter["ytm"] + 4) * (42 / 6.15)
-    label_left_side = (plot_scatter["ytm"] + 4) * (100 / 1.9)
-    label_right_side = 100 + (plot_scatter["ytm"] + 2.1) * (-58 / 4.25)
-    label_upper_edge = label_left_side.where(plot_scatter["ytm"] <= -2.1, label_right_side)
-    in_high_value_triangle = (
-        plot_scatter["ytm"].between(-4, 2.15)
-        & (plot_scatter["premium"] >= label_lower_edge)
-        & (plot_scatter["premium"] <= label_upper_edge)
-        & (plot_scatter["premium"] < 100)
+    value_ceiling = value_curve_limit(plot_scatter["ytm"])
+    in_high_value_region = (
+        plot_scatter["ytm"].between(VALUE_CURVE[0][0], VALUE_CURVE[-1][0])
+        & plot_scatter["premium"].ge(0)
+        & plot_scatter["premium"].le(value_ceiling)
     )
-    label_source = plot_scatter[(plot_scatter["balance"] >= 10) | in_high_value_triangle].copy()
+    # Label large issues plus every bond in the true lower-right value region.
+    label_source = plot_scatter[(plot_scatter["balance"] >= 10) | in_high_value_region].copy()
     labels = (
         alt.Chart(label_source)
         .mark_text(
@@ -418,11 +431,13 @@ if len(valid_scatter):
         )
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
-    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [0, 180]})
-    upper_right = pd.DataFrame({"ytm": [-2.1, 2.2], "premium": [180, 42]})
+    # Fixed structural guides: bottom anchor, top anchor and right anchor.
+    # They describe valuation structure only and do not define a selection area.
+    upper_left = pd.DataFrame({"ytm": [-4.0, 0.0], "premium": [0, 180]})
+    upper_right = pd.DataFrame({"ytm": [0.0, 2.2], "premium": [180, 42]})
     lower_right = pd.DataFrame({"ytm": [-4.0, 2.2], "premium": [0, 42]})
-    payoff_curve = pd.DataFrame({"ytm": [-3.4, -2.5, -1.5, -.5, .3, .9, 1.5, 2.1], "premium": [0, 1, 2, 4, 8, 15, 25, 38]})
-    value_note = pd.DataFrame({"ytm": [.9], "premium": [3], "text": ["高性价比区域"]})
+    payoff_curve = pd.DataFrame(VALUE_CURVE, columns=["ytm", "premium"])
+    value_note = pd.DataFrame({"ytm": [.75], "premium": [2.5], "text": ["高性价比区域"]})
     chart = (
         scatter
         + alt.Chart(upper_left).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
@@ -458,15 +473,11 @@ pool_mode = st.radio(
 
 filtered = base_filtered.copy()
 if pool_mode == "高性价比":
-    lower_edge = (filtered["ytm"] + 4) * (42 / 6.15)
-    left_side = (filtered["ytm"] + 4) * (100 / 1.9)
-    right_side = 100 + (filtered["ytm"] + 2.1) * (-58 / 4.25)
-    upper_edge = left_side.where(filtered["ytm"] <= -2.1, right_side)
+    value_ceiling = value_curve_limit(filtered["ytm"])
     filtered = filtered[
-        filtered["ytm"].between(-4, 2.15)
-        & (filtered["premium"] >= lower_edge)
-        & (filtered["premium"] <= upper_edge)
-        & (filtered["premium"] < 100)
+        filtered["ytm"].between(VALUE_CURVE[0][0], VALUE_CURVE[-1][0])
+        & filtered["premium"].ge(0)
+        & filtered["premium"].le(value_ceiling)
     ]
 elif pool_mode == "成交活跃":
     filtered = filtered[filtered["turnover"] >= filtered["turnover"].quantile(.75)]
