@@ -299,12 +299,12 @@ if numeric_filter_enabled:
         if upper is not None:
             base_filtered = base_filtered[base_filtered[column] <= upper]
 
-section_head("02 / VALUATION MAP", "估值分布", "YTM × 纯债溢价率；气泡大小代表剩余余额")
-valid_scatter = base_filtered.dropna(subset=["ytm", "floor_premium", "balance", "remaining"]).copy()
+section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；气泡大小代表剩余余额")
+valid_scatter = base_filtered.dropna(subset=["ytm", "premium", "balance", "remaining"]).copy()
 if len(valid_scatter):
     scatter_scale = st.radio(
         "坐标范围",
-        ["参考图主体区间（YTM -8%–2%；纯债溢价率0–100%）", "全部个券（真实上下限）"],
+        ["参考图主体区间（YTM -8%–2%；平价溢价率0–100%）", "全部个券（真实上下限）"],
         horizontal=True,
         label_visibility="collapsed",
     )
@@ -312,13 +312,13 @@ if len(valid_scatter):
         x_low, x_high, y_low, y_high = -8, 2, 0, 100
         plot_scatter = valid_scatter[
             valid_scatter["ytm"].between(x_low, x_high)
-            & valid_scatter["floor_premium"].between(y_low, y_high)
+            & valid_scatter["premium"].between(y_low, y_high)
         ].copy()
     else:
         x_low = math.floor(valid_scatter["ytm"].quantile(.01))
         x_high = math.ceil(valid_scatter["ytm"].quantile(.99))
-        y_low = max(-20, math.floor(valid_scatter["floor_premium"].quantile(.01)))
-        y_high = math.ceil(valid_scatter["floor_premium"].quantile(.99))
+        y_low = math.floor(valid_scatter["premium"].quantile(.01))
+        y_high = math.ceil(valid_scatter["premium"].quantile(.99))
         plot_scatter = valid_scatter.copy()
 
     plot_scatter["ytm_band"] = pd.cut(
@@ -329,7 +329,7 @@ if len(valid_scatter):
         lambda row: f"{row['name']}，{row['remaining']:.1f}年", axis=1
     )
     axis_x = alt.X("ytm:Q", title="YTM（%）", scale=alt.Scale(domain=[x_low, x_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
-    axis_y = alt.Y("floor_premium:Q", title="纯债溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
+    axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
     scatter = (
         alt.Chart(plot_scatter)
         .mark_circle(opacity=.88, stroke="#111827", strokeWidth=1.1)
@@ -340,7 +340,7 @@ if len(valid_scatter):
             color=alt.Color("ytm_band:N", title="YTM区间", scale=alt.Scale(domain=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"], range=["#D8E4EB", "#5E7DB2", "#073C9B"])),
             tooltip=[
                 alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"), alt.Tooltip("industry:N", title="行业"),
-                alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("floor_premium:Q", title="纯债溢价率", format=".2f"),
+                alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("premium:Q", title="平价溢价率", format=".2f"),
                 alt.Tooltip("balance:Q", title="余额（亿元）", format=".2f"), alt.Tooltip("remaining:Q", title="剩余期限（年）", format=".1f"),
             ],
         )
