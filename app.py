@@ -320,12 +320,30 @@ if len(valid_scatter):
     axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
     scatter = (
         alt.Chart(plot_scatter)
-        .mark_circle(opacity=.88, stroke="#111827", strokeWidth=1.1)
+        .mark_circle(opacity=.9, stroke="#263952", strokeWidth=.65)
         .encode(
             x=axis_x,
             y=axis_y,
-            size=alt.Size("balance:Q", title="剩余余额（亿元）", scale=alt.Scale(range=[35, 900]), legend=alt.Legend(orient="right")),
-            color=alt.Color("ytm_band:N", title="YTM区间", scale=alt.Scale(domain=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"], range=["#D8E4EB", "#5E7DB2", "#073C9B"])),
+            size=alt.Size(
+                "balance:Q",
+                title="剩余余额（亿元）",
+                scale=alt.Scale(range=[35, 900]),
+                legend=alt.Legend(
+                    orient="right", symbolFillColor="#5E7DB2", symbolStrokeColor="#263952",
+                    symbolStrokeWidth=.7, symbolOpacity=.9,
+                ),
+            ),
+            color=alt.Color(
+                "ytm_band:N",
+                title="YTM区间",
+                scale=alt.Scale(
+                    domain=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"],
+                    range=["#D8E4EB", "#5E7DB2", "#073C9B"],
+                ),
+                legend=alt.Legend(
+                    orient="right", symbolStrokeColor="#263952", symbolStrokeWidth=.7, symbolOpacity=.9,
+                ),
+            ),
             tooltip=[
                 alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"), alt.Tooltip("industry:N", title="行业"),
                 alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("premium:Q", title="平价溢价率", format=".2f"),
