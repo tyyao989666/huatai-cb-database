@@ -341,7 +341,7 @@ if numeric_filter_enabled:
         if upper is not None:
             base_filtered = base_filtered[base_filtered[column] <= upper]
 
-section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；气泡大小代表剩余余额")
+section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；颜色代表评级，气泡大小代表剩余余额")
 valid_scatter = base_filtered.dropna(subset=["ytm", "premium", "balance", "remaining"]).copy()
 if len(valid_scatter):
     # Fixed main view: broad enough to retain the useful valuation structure.
@@ -351,15 +351,16 @@ if len(valid_scatter):
         & valid_scatter["premium"].between(y_low, y_high)
     ].copy()
 
-    plot_scatter["ytm_band"] = pd.cut(
-        plot_scatter["ytm"], [-float("inf"), -3, 0, float("inf")],
-        labels=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"],
-    )
     plot_scatter["bond_label"] = plot_scatter.apply(
         lambda row: f"{row['name']}，{row['remaining']:.1f}年", axis=1
     )
-    axis_x = alt.X("ytm:Q", title="YTM（%）", scale=alt.Scale(domain=[x_low, x_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
-    axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
+    black_axis = dict(
+        grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8,
+        domainColor="#111111", domainWidth=1.4, tickColor="#111111", tickWidth=1.2,
+        labelColor="#111111", titleColor="#111111",
+    )
+    axis_x = alt.X("ytm:Q", title="YTM（%）", scale=alt.Scale(domain=[x_low, x_high]), axis=alt.Axis(**black_axis))
+    axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(**black_axis))
     size_legend = None if is_mobile else alt.Legend(
         orient="bottom", direction="horizontal", columns=5,
         symbolFillColor="#7EA3D4", symbolStrokeColor="#263952",
@@ -379,19 +380,19 @@ if len(valid_scatter):
                 legend=size_legend,
             ),
             color=alt.Color(
-                "ytm_band:N",
-                title="YTM区间",
+                "rating:N",
+                title="评级",
                 scale=alt.Scale(
-                    domain=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"],
-                    range=["#EDF3F5", "#7EA3D4", "#0B4FAE"],
+                    domain=["AAA", "AA+", "AA", "AA-", "A+", "A"],
+                    range=["#102B56", "#1F5AA6", "#5F88C2", "#A7BEDC", "#E8B05A", "#C96A4A"],
                 ),
                 legend=alt.Legend(
-                    orient="bottom", direction="horizontal", columns=3,
+                    orient="bottom", direction="horizontal", columns=3 if is_mobile else 6,
                     symbolStrokeColor="#263952", symbolStrokeWidth=.7, symbolOpacity=.9,
                 ),
             ),
             tooltip=[
-                alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"), alt.Tooltip("industry:N", title="行业"),
+                alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"), alt.Tooltip("industry:N", title="行业"), alt.Tooltip("rating:N", title="评级"),
                 alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("premium:Q", title="平价溢价率", format=".2f"),
                 alt.Tooltip("balance:Q", title="余额（亿元）", format=".2f"), alt.Tooltip("remaining:Q", title="剩余期限（年）", format=".1f"),
             ],
@@ -417,9 +418,9 @@ if len(valid_scatter):
         )
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
-    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [0, 100]})
-    upper_right = pd.DataFrame({"ytm": [-2.1, 2.15], "premium": [100, 42]})
-    lower_right = pd.DataFrame({"ytm": [-4.0, 2.15], "premium": [0, 42]})
+    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [0, 180]})
+    upper_right = pd.DataFrame({"ytm": [-2.1, 2.2], "premium": [180, 42]})
+    lower_right = pd.DataFrame({"ytm": [-4.0, 2.2], "premium": [0, 42]})
     payoff_curve = pd.DataFrame({"ytm": [-3.4, -2.5, -1.5, -.5, .3, .9, 1.5, 2.1], "premium": [0, 1, 2, 4, 8, 15, 25, 38]})
     value_note = pd.DataFrame({"ytm": [.9], "premium": [3], "text": ["高性价比区域"]})
     chart = (
