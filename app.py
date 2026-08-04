@@ -345,11 +345,18 @@ section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；气
 valid_scatter = base_filtered.dropna(subset=["ytm", "premium", "balance", "remaining"]).copy()
 if len(valid_scatter):
     # Fixed main view: broad enough to retain the useful valuation structure.
-    x_low, x_high, y_low, y_high = -10, 2.2, -10, 120
-    plot_scatter = valid_scatter[
-        valid_scatter["ytm"].between(x_low, x_high)
-        & valid_scatter["premium"].between(y_low, y_high)
-    ].copy()
+    x_low, x_high, y_low = -10, 2.2, -10
+    x_window = valid_scatter[valid_scatter["ytm"].between(x_low, x_high)].copy()
+    desktop_y_high = max(120, math.ceil((x_window["premium"].max() * 1.06) / 20) * 20) if len(x_window) else 120
+    y_high = 120 if is_mobile else desktop_y_high
+    plot_scatter = x_window[x_window["premium"].between(y_low, y_high)].copy()
+
+    st.markdown(
+        f'<div class="filter-summary"><span>图中个券 <b>{len(plot_scatter)}</b> 只</span>'
+        f'<span>YTM <b>{x_low:.0f}%—{x_high:.1f}%</b></span>'
+        f'<span>平价溢价率 <b>{y_low:.0f}%—{y_high:.0f}%</b></span></div>',
+        unsafe_allow_html=True,
+    )
 
     plot_scatter["ytm_band"] = pd.cut(
         plot_scatter["ytm"], [-float("inf"), -3, 0, float("inf")],
@@ -415,7 +422,7 @@ if len(valid_scatter):
         + alt.Chart(payoff_curve).mark_line(color="#F2A900", strokeWidth=3.8, interpolate="monotone").encode(x=axis_x, y=axis_y)
         + alt.Chart(value_note).mark_text(fontSize=16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
         + labels
-    ).properties(height=520 if is_mobile else 610).configure_view(stroke="#D7DCE5")
+    ).properties(height=520 if is_mobile else 720).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
