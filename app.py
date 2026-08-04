@@ -397,7 +397,17 @@ if len(valid_scatter):
             ],
         )
     )
-    label_source = plot_scatter[plot_scatter["balance"] >= 10].copy()
+    label_lower_edge = (plot_scatter["ytm"] + 4) * (42 / 6.15)
+    label_left_side = (plot_scatter["ytm"] + 4) * (100 / 1.9)
+    label_right_side = 100 + (plot_scatter["ytm"] + 2.1) * (-58 / 4.25)
+    label_upper_edge = label_left_side.where(plot_scatter["ytm"] <= -2.1, label_right_side)
+    in_high_value_triangle = (
+        plot_scatter["ytm"].between(-4, 2.15)
+        & (plot_scatter["premium"] >= label_lower_edge)
+        & (plot_scatter["premium"] <= label_upper_edge)
+        & (plot_scatter["premium"] < 100)
+    )
+    label_source = plot_scatter[(plot_scatter["balance"] >= 10) | in_high_value_triangle].copy()
     labels = (
         alt.Chart(label_source)
         .mark_text(
