@@ -420,8 +420,23 @@ if len(valid_scatter):
         & plot_scatter["premium"].ge(0)
         & plot_scatter["premium"].le(value_ceiling)
     )
-    # Label large issues plus every bond in the true lower-right value region.
-    label_source = plot_scatter[(plot_scatter["balance"] >= 10) | in_high_value_region].copy()
+    # Keep the two right-side watch zones fully readable: the elevated-premium
+    # corner and the lower-right value corner.  The rest stays selectively
+    # labelled by issue size so the map remains legible.
+    in_right_upper_watch = (
+        plot_scatter["ytm"].between(-0.8, 2.2)
+        & plot_scatter["premium"].between(105, 180)
+    )
+    in_right_lower_watch = (
+        plot_scatter["ytm"].between(-0.8, 2.2)
+        & plot_scatter["premium"].between(0, 22)
+    )
+    label_source = plot_scatter[
+        (plot_scatter["balance"] >= 10)
+        | in_high_value_region
+        | in_right_upper_watch
+        | in_right_lower_watch
+    ].copy()
     labels = (
         alt.Chart(label_source)
         .mark_text(
