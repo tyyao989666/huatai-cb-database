@@ -356,8 +356,8 @@ if len(valid_scatter):
         .mark_text(align="left", dx=6, dy=-5, fontSize=7, color="#1D2735", opacity=.82)
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
-    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [-6, 118]})
-    upper_right = pd.DataFrame({"ytm": [-2.1, 2.15], "premium": [118, 42]})
+    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [-6, 100]})
+    upper_right = pd.DataFrame({"ytm": [-2.1, 2.15], "premium": [100, 42]})
     lower_right = pd.DataFrame({"ytm": [-4.0, 2.15], "premium": [-6, 42]})
     payoff_curve = pd.DataFrame({"ytm": [-3.4, -2.5, -1.5, -.5, .3, .9, 1.5, 2.1], "premium": [-4, -3, -1, 3, 8, 15, 25, 38]})
     value_note = pd.DataFrame({"ytm": [.9], "premium": [3], "text": ["高性价比区域"]})
@@ -388,14 +388,25 @@ st.markdown(
 section_head("04 / BOND UNIVERSE", "个券机会池", "筛选、排序与明细联动")
 pool_mode = st.radio(
     "机会池",
-    ["全市场", "成交活跃", "低溢价", "正YTM", "双高品种"],
+    ["全市场", "高性价比", "成交活跃", "低溢价", "正YTM", "双高品种"],
     horizontal=True,
     key="pool_mode",
     label_visibility="collapsed",
 )
 
 filtered = base_filtered.copy()
-if pool_mode == "成交活跃":
+if pool_mode == "高性价比":
+    lower_edge = -6 + (filtered["ytm"] + 4) * (48 / 6.15)
+    left_side = -6 + (filtered["ytm"] + 4) * (106 / 1.9)
+    right_side = 100 + (filtered["ytm"] + 2.1) * (-58 / 4.25)
+    upper_edge = left_side.where(filtered["ytm"] <= -2.1, right_side)
+    filtered = filtered[
+        filtered["ytm"].between(-4, 2.15)
+        & (filtered["premium"] >= lower_edge)
+        & (filtered["premium"] <= upper_edge)
+        & (filtered["premium"] < 100)
+    ]
+elif pool_mode == "成交活跃":
     filtered = filtered[filtered["turnover"] >= filtered["turnover"].quantile(.75)]
 elif pool_mode == "低溢价":
     filtered = filtered[filtered["premium"] < 15]
