@@ -334,21 +334,25 @@ if len(valid_scatter):
         )
     )
     labels = (
-        alt.Chart(plot_scatter.nlargest(min(115, len(plot_scatter)), "balance"))
+        alt.Chart(plot_scatter.nlargest(min(40, len(plot_scatter)), "balance"))
         .mark_text(align="left", dx=7, dy=-6, fontSize=9, color="#111111")
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
-    boundary = pd.DataFrame({"x": [-4.0, -2.1, -1.8, 4.8], "y": [-15, 235, 220, 78]})
+    upper_left = pd.DataFrame({"x": [-4.0, -2.1], "y": [-15, 235]})
+    upper_right = pd.DataFrame({"x": [-2.1, 4.8], "y": [235, 78]})
+    lower_right = pd.DataFrame({"x": [-4.0, 4.8], "y": [-15, 78]})
     payoff_curve = pd.DataFrame({"x": [-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 4.6], "y": [-15, -14, -10, -2, 12, 30, 53, 85]})
     risk_note = pd.DataFrame({"x": [-6.8], "y": [195], "text": ["提防透支正股"]})
     value_note = pd.DataFrame({"x": [1.4], "y": [12], "text": ["高性价比区域"]})
     chart = (
         scatter
-        + labels
-        + alt.Chart(boundary).mark_line(color="#111111", strokeDash=[10, 5], strokeWidth=1.8).encode(x=axis_x, y=axis_y)
+        + alt.Chart(upper_left).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
+        + alt.Chart(upper_right).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
+        + alt.Chart(lower_right).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
         + alt.Chart(payoff_curve).mark_line(color="#E3A200", strokeWidth=2.6, interpolate="monotone").encode(x=axis_x, y=axis_y)
         + alt.Chart(risk_note).mark_text(fontSize=16, color="#D65245", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
         + alt.Chart(value_note).mark_text(fontSize=16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
+        + labels
     ).properties(height=610).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
