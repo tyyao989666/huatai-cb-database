@@ -1,3 +1,4 @@
-streamlit>=1.46,<2
+streamlit>=1.50,<2
 pandas>=2.2,<4
-altair>=5.5,<6
+# Altair 6 supports the Python 3.14 runtime used by Streamlit Community Cloud.
+altair>=6.0,<7
