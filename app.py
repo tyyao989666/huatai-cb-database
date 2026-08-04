@@ -540,9 +540,10 @@ industry_chart = (
 st.altair_chart(industry_chart, width="stretch")
 
 st.markdown('<div class="industry-grid">', unsafe_allow_html=True)
-for start in range(0, len(industry_counts), 6):
-    cols = st.columns(6)
-    for col, row in zip(cols, industry_counts.iloc[start : start + 6].itertuples(index=False)):
+industry_columns = 2 if is_mobile else 6
+for start in range(0, len(industry_counts), industry_columns):
+    cols = st.columns(industry_columns)
+    for col, row in zip(cols, industry_counts.iloc[start : start + industry_columns].itertuples(index=False)):
         with col:
             st.button(f"{row.行业}　{row.只数}只", key=f"industry_{row.行业}", on_click=choose_industry, args=(row.行业,))
 st.markdown("</div>", unsafe_allow_html=True)
