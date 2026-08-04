@@ -1,5 +1,10 @@
 from pathlib import Path
+from datetime import datetime, timezone
+import hashlib
+import json
 import math
+import secrets
+import sqlite3
 
 import altair as alt
 import pandas as pd
@@ -20,6 +25,7 @@ SKY = "#7EA3D4"
 ORANGE = "#E99A2F"
 RED = "#C94B55"
 PAPER = "#F4F7FB"
+USER_DB = BASE / "data" / "user_workspace.db"
 
 # The orange curve is the independent lower-right value boundary.  It is not
 # derived from, or enclosed by, the three black valuation structure lines.
@@ -36,6 +42,128 @@ def value_curve_limit(values: pd.Series) -> pd.Series:
         segment = values.between(x0, x1)
         limits.loc[segment] = y0 + (values.loc[segment] - x0) * (y1 - y0) / (x1 - x0)
     return limits
+
+
+def init_user_db():
+    """Create the lightweight account workspace used by the Streamlit app."""
+    with sqlite3.connect(USER_DB) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                password_hash TEXT NOT NULL,
+                salt TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            );
+            CREATE TABLE IF NOT EXISTS saved_screens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, name),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            CREATE TABLE IF NOT EXISTS watchlist (
+                user_id INTEGER NOT NULL,
+                bond_code TEXT NOT NULL,
+                added_at TEXT NOT NULL,
+                PRIMARY KEY(user_id, bond_code),
+                FOREIGN KEY(user_id) REFERENCES users(id)
+            );
+            """
+        )
+
+
+def password_digest(password, salt_hex):
+    return hashlib.pbkdf2_hmac(
+        "sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), 240_000
+    ).hex()
+
+
+def register_user(username, password):
+    username = username.strip()
+    if len(username) < 3:
+        return None, "用户名至少需要3个字符"
+    if not all(char.isalnum() or char in "_-" for char in username):
+        return None, "用户名仅支持中文、字母、数字、下划线和短横线"
+    if len(password) < 8:
+        return None, "密码至少需要8个字符"
+    salt = secrets.token_hex(16)
+    created_at = datetime.now(timezone.utc).isoformat()
+    try:
+        with sqlite3.connect(USER_DB) as conn:
+            cursor = conn.execute(
+                "INSERT INTO users(username, password_hash, salt, created_at) VALUES (?, ?, ?, ?)",
+                (username, password_digest(password, salt), salt, created_at),
+            )
+            return {"id": cursor.lastrowid, "username": username}, None
+    except sqlite3.IntegrityError:
+        return None, "用户名已存在"
+
+
+def authenticate_user(username, password):
+    with sqlite3.connect(USER_DB) as conn:
+        row = conn.execute(
+            "SELECT id, username, password_hash, salt FROM users WHERE username = ? COLLATE NOCASE",
+            (username.strip(),),
+        ).fetchone()
+    if row and secrets.compare_digest(row[2], password_digest(password, row[3])):
+        return {"id": row[0], "username": row[1]}
+    return None
+
+
+def saved_screens(user_id):
+    with sqlite3.connect(USER_DB) as conn:
+        rows = conn.execute(
+            "SELECT id, name, payload, updated_at FROM saved_screens WHERE user_id = ? ORDER BY updated_at DESC",
+            (user_id,),
+        ).fetchall()
+    return [{"id": row[0], "name": row[1], "payload": json.loads(row[2]), "updated_at": row[3]} for row in rows]
+
+
+def save_screen(user_id, name, payload):
+    name = name.strip()
+    if not name:
+        return False
+    with sqlite3.connect(USER_DB) as conn:
+        conn.execute(
+            """INSERT INTO saved_screens(user_id, name, payload, updated_at) VALUES (?, ?, ?, ?)
+               ON CONFLICT(user_id, name) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at""",
+            (user_id, name, json.dumps(payload, ensure_ascii=False), datetime.now(timezone.utc).isoformat()),
+        )
+    return True
+
+
+def delete_screen(user_id, screen_id):
+    with sqlite3.connect(USER_DB) as conn:
+        conn.execute("DELETE FROM saved_screens WHERE user_id = ? AND id = ?", (user_id, screen_id))
+
+
+def add_watchlist(user_id, codes):
+    timestamp = datetime.now(timezone.utc).isoformat()
+    with sqlite3.connect(USER_DB) as conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO watchlist(user_id, bond_code, added_at) VALUES (?, ?, ?)",
+            [(user_id, code, timestamp) for code in codes],
+        )
+
+
+def remove_watchlist(user_id, codes):
+    with sqlite3.connect(USER_DB) as conn:
+        conn.executemany(
+            "DELETE FROM watchlist WHERE user_id = ? AND bond_code = ?",
+            [(user_id, code) for code in codes],
+        )
+
+
+def watchlist_codes(user_id):
+    with sqlite3.connect(USER_DB) as conn:
+        rows = conn.execute(
+            "SELECT bond_code FROM watchlist WHERE user_id = ? ORDER BY added_at DESC", (user_id,)
+        ).fetchall()
+    return [row[0] for row in rows]
 
 st.markdown(
     """
@@ -75,6 +203,11 @@ st.markdown(
     [data-testid="stSidebar"] .stButton button { width:100%; background:transparent; border:1px solid rgba(255,255,255,.25); color:white; }
     [data-testid="stSidebar"] .stButton button:hover { border-color:#E99A2F; color:#FFD18B; }
     .block-container { max-width:1540px; padding-top:1.1rem; padding-bottom:4rem; }
+    .account-card { margin:0 0 14px; padding:13px 14px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.07); }
+    .account-card small { display:block; opacity:.62; font:10px Arial,sans-serif; letter-spacing:.12em; }
+    .account-card b { display:block; margin-top:5px; font-size:16px; }
+    .workspace-strip { margin:12px 0 16px; padding:14px 16px; background:#E8EEF7; border:1px solid #D2DEED; color:#4C6485; }
+    .workspace-strip b { color:#102B56; }
     .brand-lockup { padding:8px 0 20px; border-bottom:1px solid rgba(255,255,255,.17); margin-bottom:18px; }
     .brand-lockup b { font-size:25px; letter-spacing:.08em; }
     .brand-lockup span { display:block; margin-top:6px; font-family:Arial,sans-serif; font-size:10px; letter-spacing:.22em; opacity:.6; }
@@ -208,12 +341,34 @@ def choose_industry(name):
 
 def reset_filters():
     st.session_state["industry_filter"] = []
+    st.session_state["rating_filter"] = []
+    st.session_state["query_filter"] = ""
     st.session_state["pool_mode"] = "全市场"
+    st.session_state["sort_metric"] = "成交额"
+    st.session_state["sort_direction"] = "从高到低"
     st.session_state["numeric_filter_enabled"] = True
-    for key in ["price_min", "price_max", "premium_min", "premium_max", "ytm_min", "ytm_max", "balance_min", "balance_max"]:
+    for key in [
+        "price_min", "price_max", "premium_min", "premium_max", "ytm_min", "ytm_max",
+        "balance_min", "balance_max", "stock_price_min", "stock_price_max",
+        "stock_change_min", "stock_change_max", "stock_change_5d_min", "stock_change_5d_max",
+    ]:
         st.session_state.pop(key, None)
 
 
+def apply_screen(payload):
+    allowed = {
+        "query_filter", "industry_filter", "rating_filter", "numeric_filter_enabled",
+        "price_min", "price_max", "premium_min", "premium_max", "ytm_min", "ytm_max",
+        "balance_min", "balance_max", "stock_price_min", "stock_price_max",
+        "stock_change_min", "stock_change_max", "stock_change_5d_min", "stock_change_5d_max",
+        "pool_mode", "sort_metric", "sort_direction",
+    }
+    for key, value in payload.items():
+        if key in allowed:
+            st.session_state[key] = value
+
+
+init_user_db()
 bonds, market, supply = load_data()
 try:
     user_agent = str(st.context.headers.get("User-Agent", "")).lower()
@@ -231,19 +386,70 @@ if "pool_mode" not in st.session_state:
     st.session_state["pool_mode"] = "全市场"
 if "numeric_filter_enabled" not in st.session_state:
     st.session_state["numeric_filter_enabled"] = True
+if "auth_user" not in st.session_state:
+    st.session_state["auth_user"] = None
 
 with st.sidebar:
     st.markdown('<div class="brand-lockup"><b>华泰证券</b><span>HUATAI SECURITIES</span></div>', unsafe_allow_html=True)
+    auth_user = st.session_state["auth_user"]
+    if auth_user is None:
+        with st.expander("账户登录 · 保存研究记录", expanded=False):
+            auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, label_visibility="collapsed")
+            with st.form("account_form", clear_on_submit=False):
+                auth_name = st.text_input("用户名", placeholder="至少3个字符")
+                auth_password = st.text_input("密码", type="password", placeholder="至少8个字符")
+                auth_submit = st.form_submit_button(auth_mode, width="stretch")
+            if auth_submit:
+                if auth_mode == "注册":
+                    user, error = register_user(auth_name, auth_password)
+                    if error:
+                        st.error(error)
+                    else:
+                        st.session_state["auth_user"] = user
+                        st.rerun()
+                else:
+                    user = authenticate_user(auth_name, auth_password)
+                    if user:
+                        st.session_state["auth_user"] = user
+                        st.rerun()
+                    else:
+                        st.error("用户名或密码不正确")
+    else:
+        st.markdown(
+            f'<div class="account-card"><small>PERSONAL RESEARCH DESK</small><b>{auth_user["username"]}</b></div>',
+            unsafe_allow_html=True,
+        )
+        plans = saved_screens(auth_user["id"])
+        if plans:
+            plan_map = {plan["name"]: plan for plan in plans}
+            chosen_plan_name = st.selectbox("已保存筛选方案", list(plan_map), key="selected_saved_screen")
+            load_col, delete_col = st.columns(2)
+            with load_col:
+                if st.button("载入方案", width="stretch"):
+                    apply_screen(plan_map[chosen_plan_name]["payload"])
+                    st.rerun()
+            with delete_col:
+                if st.button("删除方案", width="stretch"):
+                    delete_screen(auth_user["id"], plan_map[chosen_plan_name]["id"])
+                    st.rerun()
+        else:
+            st.caption("尚未保存筛选方案")
+        if st.button("退出登录", width="stretch"):
+            st.session_state["auth_user"] = None
+            st.rerun()
+        st.markdown("---")
     st.markdown("### 个券筛选")
     st.button("清空筛选 · 查看全市场", on_click=reset_filters, width="stretch")
-    query = st.text_input("名称 / 代码 / 正股", placeholder="输入关键词")
+    query = st.text_input("名称 / 代码 / 正股", placeholder="输入关键词", key="query_filter")
     industries = sorted(bonds["industry"].dropna().astype(str).unique())
     selected_industries = st.multiselect("行业", industries, key="industry_filter")
     ratings = sorted(bonds["rating"].dropna().astype(str).unique())
-    selected_ratings = st.multiselect("评级", ratings)
+    selected_ratings = st.multiselect("评级", ratings, key="rating_filter")
     st.markdown("---")
     numeric_filter_enabled = st.checkbox("启用数值区间筛选", key="numeric_filter_enabled")
     price_min = price_max = premium_min = premium_max = ytm_min = ytm_max = balance_min = balance_max = None
+    stock_price_min = stock_price_max = stock_change_min = stock_change_max = None
+    stock_change_5d_min = stock_change_5d_max = None
     if numeric_filter_enabled:
         st.caption("范围可直接输入，不设上限或下限；留空即不限制。")
         left, right = st.columns(2)
@@ -257,6 +463,16 @@ with st.sidebar:
             premium_max = st.number_input("转股溢价率 ≤", value=None, step=1.0, key="premium_max", placeholder="不限制")
             ytm_max = st.number_input("YTM ≤", value=None, step=1.0, key="ytm_max", placeholder="不限制")
             balance_max = st.number_input("剩余余额 ≤", value=None, step=1.0, key="balance_max", placeholder="不限制")
+        with st.expander("正股指标筛选", expanded=False):
+            stock_left, stock_right = st.columns(2)
+            with stock_left:
+                stock_price_min = st.number_input("正股价格 ≥", value=None, step=1.0, key="stock_price_min", placeholder="不限制")
+                stock_change_min = st.number_input("正股涨跌 ≥", value=None, step=1.0, key="stock_change_min", placeholder="不限制")
+                stock_change_5d_min = st.number_input("正股5日涨跌 ≥", value=None, step=1.0, key="stock_change_5d_min", placeholder="不限制")
+            with stock_right:
+                stock_price_max = st.number_input("正股价格 ≤", value=None, step=1.0, key="stock_price_max", placeholder="不限制")
+                stock_change_max = st.number_input("正股涨跌 ≤", value=None, step=1.0, key="stock_change_max", placeholder="不限制")
+                stock_change_5d_max = st.number_input("正股5日涨跌 ≤", value=None, step=1.0, key="stock_change_5d_max", placeholder="不限制")
     st.caption("数据更新至 2026-07-31")
 
 st.markdown(
@@ -355,6 +571,9 @@ if numeric_filter_enabled:
     for column, lower, upper in [
         ("price", price_min, price_max), ("premium", premium_min, premium_max),
         ("ytm", ytm_min, ytm_max), ("balance", balance_min, balance_max),
+        ("stock_price", stock_price_min, stock_price_max),
+        ("stock_change", stock_change_min, stock_change_max),
+        ("stock_change_5d", stock_change_5d_min, stock_change_5d_max),
     ]:
         if lower is not None:
             base_filtered = base_filtered[base_filtered[column] >= lower]
@@ -525,12 +744,13 @@ elif pool_mode == "双高品种":
 sort_options = {
     "成交额": "turnover", "YTM": "ytm", "转股溢价率": "premium", "价格": "price",
     "平价": "parity", "纯债溢价率": "floor_premium", "剩余余额": "balance", "剩余期限": "remaining",
+    "正股价格": "stock_price", "正股涨跌": "stock_change", "正股5日涨跌": "stock_change_5d",
 }
 sort_col, order_col, download_col = st.columns([1.2, .8, 1])
 with sort_col:
-    sort_label = st.selectbox("排序指标", list(sort_options), index=0)
+    sort_label = st.selectbox("排序指标", list(sort_options), index=0, key="sort_metric")
 with order_col:
-    sort_order = st.selectbox("排序方向", ["从高到低", "从低到高"])
+    sort_order = st.selectbox("排序方向", ["从高到低", "从低到高"], key="sort_direction")
 with download_col:
     st.write("")
     st.write("")
@@ -543,6 +763,82 @@ with download_col:
     )
 
 filtered = filtered.sort_values(sort_options[sort_label], ascending=sort_order == "从低到高", na_position="last")
+
+auth_user = st.session_state["auth_user"]
+if auth_user:
+    st.markdown(
+        f'<div class="workspace-strip"><b>{auth_user["username"]} 的研究工作台</b>　'
+        f'保存筛选方案、建立个券自选，并在下次登录后继续使用。</div>',
+        unsafe_allow_html=True,
+    )
+    workspace_left, workspace_right = st.columns(2)
+    with workspace_left:
+        with st.form("save_screen_form", clear_on_submit=True):
+            screen_name = st.text_input("筛选方案名称", placeholder="例如：低溢价银行")
+            save_screen_submit = st.form_submit_button("保存当前筛选方案", width="stretch")
+        if save_screen_submit:
+            payload = {
+                "query_filter": query,
+                "industry_filter": list(selected_industries),
+                "rating_filter": list(selected_ratings),
+                "numeric_filter_enabled": numeric_filter_enabled,
+                "price_min": price_min, "price_max": price_max,
+                "premium_min": premium_min, "premium_max": premium_max,
+                "ytm_min": ytm_min, "ytm_max": ytm_max,
+                "balance_min": balance_min, "balance_max": balance_max,
+                "stock_price_min": stock_price_min, "stock_price_max": stock_price_max,
+                "stock_change_min": stock_change_min, "stock_change_max": stock_change_max,
+                "stock_change_5d_min": stock_change_5d_min, "stock_change_5d_max": stock_change_5d_max,
+                "pool_mode": pool_mode,
+                "sort_metric": sort_label,
+                "sort_direction": sort_order,
+            }
+            if save_screen(auth_user["id"], screen_name, payload):
+                st.success("筛选方案已保存")
+            else:
+                st.warning("请填写筛选方案名称")
+    with workspace_right:
+        bond_lookup = {
+            f"{row.name} · {row.code}": row.code
+            for row in filtered[["name", "code"]].drop_duplicates().head(308).itertuples(index=False)
+        }
+        with st.form("watchlist_form", clear_on_submit=True):
+            selected_watch_labels = st.multiselect(
+                "从当前结果加入自选", list(bond_lookup), placeholder="可选择多只个券"
+            )
+            watchlist_submit = st.form_submit_button("加入我的自选", width="stretch")
+        if watchlist_submit:
+            add_watchlist(auth_user["id"], [bond_lookup[label] for label in selected_watch_labels])
+            st.success(f"已加入 {len(selected_watch_labels)} 只个券")
+
+    personal_codes = watchlist_codes(auth_user["id"])
+    if personal_codes:
+        st.markdown("#### 我的自选")
+        watch_table = bonds[bonds["code"].isin(personal_codes)].copy()
+        watch_table["自选顺序"] = watch_table["code"].map({code: idx for idx, code in enumerate(personal_codes)})
+        watch_table = watch_table.sort_values("自选顺序")
+        remove_lookup = {f"{row.name} · {row.code}": row.code for row in watch_table.itertuples(index=False)}
+        remove_col, action_col = st.columns([2, 1])
+        with remove_col:
+            selected_remove_labels = st.multiselect(
+                "移除自选", list(remove_lookup), key="remove_watchlist_labels", placeholder="选择需要移除的个券"
+            )
+        with action_col:
+            st.write("")
+            st.write("")
+            if st.button("移除所选", width="stretch"):
+                remove_watchlist(auth_user["id"], [remove_lookup[label] for label in selected_remove_labels])
+                st.rerun()
+        st.dataframe(
+            watch_table.rename(columns={
+                "name": "转债名称", "code": "转债代码", "stock_code": "正股代码", "price": "价格",
+                "stock_price": "正股价格", "premium": "转股溢价率", "ytm": "YTM", "rating": "评级",
+            })[["转债名称", "转债代码", "正股代码", "价格", "正股价格", "转股溢价率", "YTM", "评级"]],
+            width="stretch", hide_index=True, height=min(360, 38 + len(watch_table) * 35),
+        )
+    else:
+        st.caption("我的自选暂为空，可从当前筛选结果中加入个券。")
+
 summary_cols = st.columns(5)
 summary_values = [
     ("筛选结果", len(filtered), "只"),
@@ -557,13 +853,15 @@ for col, (label, value, unit) in zip(summary_cols, summary_values):
 
 table = filtered.rename(
     columns={
-        "name": "转债名称", "code": "转债代码", "industry": "行业", "price": "价格",
+        "name": "转债名称", "code": "转债代码", "stock_code": "正股代码", "industry": "行业", "price": "价格",
+        "stock_price": "正股价格", "stock_change_5d": "正股5日涨跌", "change_5d": "转债5日涨跌",
         "change": "转债涨跌", "stock_change": "正股涨跌", "turnover": "成交额(百万元)",
         "parity": "平价", "premium": "转股溢价率", "ytm": "YTM", "floor_premium": "纯债溢价率",
         "remaining": "剩余期限", "balance": "剩余余额(亿元)", "rating": "评级", "list_date": "上市日期",
     }
 )[[
-    "转债名称", "转债代码", "行业", "价格", "转债涨跌", "正股涨跌", "成交额(百万元)",
+    "转债名称", "转债代码", "正股代码", "行业", "价格", "正股价格", "转债涨跌", "正股涨跌",
+    "转债5日涨跌", "正股5日涨跌", "成交额(百万元)",
     "平价", "转股溢价率", "YTM", "纯债溢价率", "剩余期限", "剩余余额(亿元)", "评级", "上市日期",
 ]]
 st.dataframe(
@@ -573,8 +871,11 @@ st.dataframe(
     hide_index=True,
     column_config={
         "价格": st.column_config.NumberColumn(format="%.3f"),
+        "正股价格": st.column_config.NumberColumn(format="%.3f"),
         "转债涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
         "正股涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
+        "转债5日涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
+        "正股5日涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
         "成交额(百万元)": st.column_config.NumberColumn(format="%.2f"),
         "平价": st.column_config.NumberColumn(format="%.2f"),
         "转股溢价率": st.column_config.NumberColumn(format="%.2f%%"),

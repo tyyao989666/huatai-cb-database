@@ -2,3 +2,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .DS_Store
+data/user_workspace.db
+data/user_workspace.db-shm
+data/user_workspace.db-wal
