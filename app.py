@@ -138,7 +138,10 @@ st.markdown(
       .section-head { margin:28px 0 11px; padding-bottom:10px; align-items:flex-start; }
       .section-head h2 { font-size:23px; } .section-head span { display:none; }
       [data-testid="stHorizontalBlock"] { flex-wrap:wrap !important; gap:.65rem !important; }
-      [data-testid="column"] { flex:1 1 calc(50% - .4rem) !important; width:calc(50% - .4rem) !important; min-width:0 !important; }
+      [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+      [data-testid="stHorizontalBlock"] > [data-testid="column"] {
+        flex:1 1 calc(50% - .4rem) !important; width:calc(50% - .4rem) !important; min-width:0 !important;
+      }
       .metric-card { min-height:104px; padding:15px 14px 12px; }
       .metric-card b { margin-top:13px; font-size:24px; }
       .weekly { padding:21px 18px; border-left-width:4px; }
@@ -151,7 +154,8 @@ st.markdown(
       .stDownloadButton button, div.stButton > button { min-height:42px; width:100%; }
       .industry-grid [data-testid="stButton"] button { min-height:58px; padding:8px 10px; font-size:12px; }
       div[data-testid="stDataFrame"] { overflow-x:auto; box-shadow:none; }
-      [data-testid="stVegaLiteChart"] { overflow-x:auto; overscroll-behavior-x:contain; }
+      [data-testid="stVegaLiteChart"] { overflow:hidden; overscroll-behavior-x:contain; }
+      [data-testid="stVegaLiteChart"] canvas, [data-testid="stVegaLiteChart"] svg { touch-action:pan-y pinch-zoom; }
       [data-testid="stToolbar"] { display:none !important; }
       button[data-baseweb="tab"] { padding:8px 11px; font-size:12px; }
     }
@@ -371,9 +375,10 @@ if len(valid_scatter):
         lambda row: f"{row['name']}，{row['remaining']:.1f}年", axis=1
     )
     black_axis = dict(
-        grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8,
+        grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=5 if is_mobile else 8,
         domainColor="#111111", domainWidth=1.4, tickColor="#111111", tickWidth=1.2,
         labelColor="#111111", titleColor="#111111",
+        labelFontSize=10 if is_mobile else 11, titleFontSize=12 if is_mobile else 14,
     )
     axis_x = alt.X("ytm:Q", title="YTM（%）", scale=alt.Scale(domain=[x_low, x_high]), axis=alt.Axis(**black_axis))
     axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(**black_axis))
@@ -382,7 +387,7 @@ if len(valid_scatter):
         symbolFillColor="#7EA3D4", symbolStrokeColor="#263952",
         symbolStrokeWidth=.7, symbolOpacity=.9,
     )
-    bubble_size_range = [45, 900] if is_mobile else [70, 1600]
+    bubble_size_range = [28, 560] if is_mobile else [70, 1600]
     scatter = (
         alt.Chart(plot_scatter)
         .mark_circle(opacity=.9, stroke="#263952", strokeWidth=.65)
@@ -404,6 +409,7 @@ if len(valid_scatter):
                 ),
                 legend=alt.Legend(
                     orient="bottom", direction="horizontal", columns=3 if is_mobile else 6,
+                    labelFontSize=10 if is_mobile else 11, titleFontSize=11 if is_mobile else 12,
                     symbolStrokeColor="#263952", symbolStrokeWidth=.7, symbolOpacity=.9,
                 ),
             ),
@@ -431,8 +437,11 @@ if len(valid_scatter):
         plot_scatter["ytm"].between(-0.8, 2.2)
         & plot_scatter["premium"].between(0, 22)
     )
+    # On a phone, retain only the two prescribed right-side zones plus the
+    # genuinely large issues.  This preserves the map's reading hierarchy.
+    label_balance_floor = 40 if is_mobile else 10
     label_source = plot_scatter[
-        (plot_scatter["balance"] >= 10)
+        (plot_scatter["balance"] >= label_balance_floor)
         | in_high_value_region
         | in_right_upper_watch
         | in_right_lower_watch
@@ -440,8 +449,8 @@ if len(valid_scatter):
     labels = (
         alt.Chart(label_source)
         .mark_text(
-            align="left", dx=7, dy=-6,
-            fontSize=7 if is_mobile else 9,
+            align="left", dx=5 if is_mobile else 7, dy=-4 if is_mobile else -6,
+            fontSize=6 if is_mobile else 9,
             color="#172235", opacity=.92,
         )
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
@@ -461,9 +470,9 @@ if len(valid_scatter):
         + alt.Chart(upper_right).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
         + alt.Chart(lower_right).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
         + alt.Chart(payoff_curve).mark_line(color="#F2A900", strokeWidth=3.8, interpolate="monotone").encode(x=axis_x, y=axis_y)
-        + alt.Chart(value_note).mark_text(fontSize=16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
+        + alt.Chart(value_note).mark_text(fontSize=12 if is_mobile else 16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
         + labels
-    ).properties(height=520 if is_mobile else 620).configure_view(stroke="#D7DCE5")
+    ).properties(height=430 if is_mobile else 620, padding=4 if is_mobile else 10).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
@@ -572,14 +581,14 @@ st.caption("表格可再次点击任意数值列标题排序；当前显示全�
 section_head("05 / MARKET STRUCTURE", "全市场行业分布", "点击行业卡片可回到机会池筛选")
 industry_counts = bonds["industry"].fillna("未分类").value_counts().rename_axis("行业").reset_index(name="只数")
 industry_chart = (
-    alt.Chart(industry_counts.sort_values("只数"))
+    alt.Chart((industry_counts.nlargest(12, "只数") if is_mobile else industry_counts).sort_values("只数"))
     .mark_bar(color=BLUE, cornerRadiusEnd=3)
     .encode(
         x=alt.X("只数:Q", title="个券数量"),
         y=alt.Y("行业:N", sort="-x", title=None),
         tooltip=["行业:N", "只数:Q"],
     )
-    .properties(height=620)
+    .properties(height=340 if is_mobile else 620)
 )
 st.altair_chart(industry_chart, width="stretch")
 
