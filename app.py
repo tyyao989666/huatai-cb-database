@@ -24,13 +24,12 @@ PAPER = "#F4F7FB"
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap');
     :root { --navy:#102B56; --blue:#1F5AA6; --sky:#7EA3D4; --orange:#E99A2F; --paper:#F4F7FB; --ink:#10233F; }
     @font-face { font-family:"HTSC Type"; src:local("Arial"); unicode-range:U+0000-024F, U+2000-206F; }
-    @font-face { font-family:"HTSC Type"; src:local("KaiTi"), local("KaiTi_GB2312"), local("楷体"); unicode-range:U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
+    @font-face { font-family:"HTSC Type"; src:local("SimHei"), local("Microsoft YaHei"), local("黑体"); unicode-range:U+3000-303F, U+3400-4DBF, U+4E00-9FFF, U+F900-FAFF, U+FF00-FFEF; }
     html, body, [class*="st-"], [data-testid="stAppViewContainer"],
     [data-testid="stSidebar"], [data-testid="stDataFrame"] * {
-        font-family:"HTSC Type", Arial, KaiTi, STKaiti, serif !important;
+        font-family:"HTSC Type", Arial, SimHei, "Microsoft YaHei", sans-serif !important;
     }
     [data-testid="stAppViewContainer"] {
         background:
@@ -67,7 +66,7 @@ st.markdown(
     .hero { position:relative; margin:22px 0 18px; padding:42px 46px 36px; background:linear-gradient(120deg,#fff 0%,#EEF3FA 78%); border:1px solid #D8E2F0; box-shadow:0 18px 50px rgba(24,61,110,.08); overflow:hidden; }
     .hero:after { content:""; position:absolute; width:300px; height:300px; right:-80px; top:-150px; border:52px solid rgba(31,90,166,.08); border-radius:50%; }
     .eyebrow { color:#E28519; font:11px Arial,sans-serif; letter-spacing:.18em; }
-    .hero h1 { margin:15px 0 10px; font-family:"HTSC Type",KaiTi,serif !important; font-size:50px; font-weight:400; line-height:1; color:#10233F; letter-spacing:.08em; }
+    .hero h1 { margin:15px 0 10px; font-family:"HTSC Type",SimHei,sans-serif !important; font-size:50px; font-weight:400; line-height:1; color:#10233F; letter-spacing:.08em; }
     .hero p { margin:0; color:#647A99; font-size:15px; }
     .hero .date { position:absolute; right:44px; bottom:34px; color:#1F5AA6; font:700 18px Arial,sans-serif; z-index:2; }
     .chapter-nav { position:sticky; top:3.55rem; z-index:20; display:flex; align-items:stretch; margin:0 0 18px; background:rgba(255,255,255,.96); border:1px solid #D8E2F0; box-shadow:0 10px 25px rgba(24,61,110,.08); overflow-x:auto; }
@@ -87,7 +86,7 @@ st.markdown(
     .metric-card b { display:block; margin-top:19px; color:#102B56; font:700 29px Arial,sans-serif; letter-spacing:-.03em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .metric-card small { color:#8191A8; font:11px Arial,sans-serif; }
     .weekly { padding:27px 30px; background:#102B56; color:white; border-left:5px solid #E99A2F; box-shadow:0 15px 35px rgba(16,43,86,.16); }
-    .weekly h3 { margin:0 0 13px; font-family:"HTSC Type",KaiTi,serif !important; font-size:23px; font-weight:400; color:white; }
+    .weekly h3 { margin:0 0 13px; font-family:"HTSC Type",SimHei,sans-serif !important; font-size:23px; font-weight:400; color:white; }
     .weekly p { margin:0; color:rgba(255,255,255,.77); line-height:1.95; font-size:15px; }
     .filter-summary { padding:17px 20px; background:#E8EEF7; border:1px solid #D2DEED; color:#4C6485; margin:4px 0 13px; }
     .filter-summary b { color:#102B56; font:700 18px Arial,sans-serif; margin:0 4px; }
@@ -97,7 +96,7 @@ st.markdown(
     div[data-testid="stDataFrame"] { border:1px solid #D5E0EE; box-shadow:0 12px 30px rgba(24,61,110,.06); }
     .stDownloadButton button, div.stButton > button[kind="primary"] { background:#1F5AA6; color:white; border-color:#1F5AA6; border-radius:3px; }
     .stDownloadButton button:hover, div.stButton > button[kind="primary"]:hover { background:#163F76; border-color:#163F76; color:white; }
-    .section-head h2, .industry-grid button, [data-testid="stDataFrame"] * { font-family:"HTSC Type",Arial,KaiTi,serif !important; }
+    .section-head h2, .industry-grid button, [data-testid="stDataFrame"] * { font-family:"HTSC Type",Arial,SimHei,sans-serif !important; }
     [data-testid="stMetricValue"], [data-testid="stMetricDelta"], .num, .stDataFrame { font-family:Arial,sans-serif !important; }
     div[data-baseweb="tab-list"] { gap:8px; }
     button[data-baseweb="tab"] { background:#E8EEF7; padding:9px 18px; }
