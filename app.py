@@ -103,9 +103,41 @@ st.markdown(
     button[data-baseweb="tab"][aria-selected="true"] { background:#1F5AA6; color:white; }
     footer { visibility:hidden; }
     @media (max-width:760px) {
-      .hero { padding:30px 24px; } .hero h1 { font-size:37px; } .hero .date { position:static; margin-top:20px; display:block; }
-      .top-ticker { gap:14px; } .section-head span { display:none; }
-      .chapter-nav { top:3.1rem; } .chapter-nav a { min-width:118px; padding:10px 12px; }
+      .block-container { width:100%; padding:0.65rem 0.8rem 3rem !important; }
+      .hero { margin:13px 0 12px; padding:27px 20px 24px; }
+      .hero:after { width:190px; height:190px; right:-80px; top:-105px; border-width:34px; }
+      .hero h1 { margin-top:11px; font-size:34px; line-height:1.15; letter-spacing:.04em; }
+      .hero p { max-width:84%; font-size:13px; line-height:1.65; }
+      .hero .date { position:static; display:block; margin-top:17px; font-size:14px; }
+      .top-ticker { gap:12px; margin:0 -0.8rem; padding:10px 14px; border-left:0; font-size:12px; }
+      .top-ticker span { font-size:11px; } .top-ticker b { font-size:12px; }
+      .chapter-nav { top:2.9rem; margin:0 -0.2rem 13px; box-shadow:0 7px 18px rgba(24,61,110,.08); scrollbar-width:none; }
+      .chapter-nav::-webkit-scrollbar { display:none; }
+      .chapter-nav a { min-width:112px; padding:9px 11px; font-size:12px; }
+      .chapter-nav a b { font-size:9px; }
+      .section-head { margin:28px 0 11px; padding-bottom:10px; align-items:flex-start; }
+      .section-head h2 { font-size:23px; } .section-head span { display:none; }
+      [data-testid="stHorizontalBlock"] { flex-wrap:wrap !important; gap:.65rem !important; }
+      [data-testid="column"] { flex:1 1 calc(50% - .4rem) !important; width:calc(50% - .4rem) !important; min-width:0 !important; }
+      .metric-card { min-height:104px; padding:15px 14px 12px; }
+      .metric-card b { margin-top:13px; font-size:24px; }
+      .weekly { padding:21px 18px; border-left-width:4px; }
+      .weekly h3 { font-size:19px; line-height:1.55; }
+      .weekly p { font-size:13px; line-height:1.85; }
+      .filter-summary { padding:13px 14px; }
+      .filter-summary span { display:block; margin:4px 0; }
+      [data-baseweb="radio"] { margin-right:8px !important; }
+      [role="radiogroup"] { display:flex !important; flex-wrap:wrap !important; gap:5px 8px !important; }
+      .stDownloadButton button, div.stButton > button { min-height:42px; width:100%; }
+      .industry-grid [data-testid="stButton"] button { min-height:58px; padding:8px 10px; font-size:12px; }
+      div[data-testid="stDataFrame"] { overflow-x:auto; box-shadow:none; }
+      [data-testid="stVegaLiteChart"] { overflow-x:auto; overscroll-behavior-x:contain; }
+      button[data-baseweb="tab"] { padding:8px 11px; font-size:12px; }
+    }
+    @media (max-width:430px) {
+      .hero h1 { font-size:30px; }
+      .metric-card b { font-size:21px; }
+      .section-head h2 { font-size:21px; }
     }
     </style>
     """,
@@ -329,7 +361,8 @@ if len(valid_scatter):
                 title="剩余余额（亿元）",
                 scale=alt.Scale(range=[35, 900]),
                 legend=alt.Legend(
-                    orient="right", symbolFillColor="#5E7DB2", symbolStrokeColor="#263952",
+                    orient="bottom", direction="horizontal", columns=5,
+                    symbolFillColor="#5E7DB2", symbolStrokeColor="#263952",
                     symbolStrokeWidth=.7, symbolOpacity=.9,
                 ),
             ),
@@ -341,7 +374,8 @@ if len(valid_scatter):
                     range=["#D8E4EB", "#5E7DB2", "#073C9B"],
                 ),
                 legend=alt.Legend(
-                    orient="right", symbolStrokeColor="#263952", symbolStrokeWidth=.7, symbolOpacity=.9,
+                    orient="bottom", direction="horizontal", columns=3,
+                    symbolStrokeColor="#263952", symbolStrokeWidth=.7, symbolOpacity=.9,
                 ),
             ),
             tooltip=[
