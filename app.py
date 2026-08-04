@@ -345,18 +345,11 @@ section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；气
 valid_scatter = base_filtered.dropna(subset=["ytm", "premium", "balance", "remaining"]).copy()
 if len(valid_scatter):
     # Fixed main view: broad enough to retain the useful valuation structure.
-    x_low, x_high, y_low = -10, 2.2, -10
-    x_window = valid_scatter[valid_scatter["ytm"].between(x_low, x_high)].copy()
-    desktop_y_high = max(120, math.ceil((x_window["premium"].max() * 1.06) / 20) * 20) if len(x_window) else 120
-    y_high = 120 if is_mobile else desktop_y_high
-    plot_scatter = x_window[x_window["premium"].between(y_low, y_high)].copy()
-
-    st.markdown(
-        f'<div class="filter-summary"><span>图中个券 <b>{len(plot_scatter)}</b> 只</span>'
-        f'<span>YTM <b>{x_low:.0f}%—{x_high:.1f}%</b></span>'
-        f'<span>平价溢价率 <b>{y_low:.0f}%—{y_high:.0f}%</b></span></div>',
-        unsafe_allow_html=True,
-    )
+    x_low, x_high, y_low, y_high = -10, 2.2, 0, 180
+    plot_scatter = valid_scatter[
+        valid_scatter["ytm"].between(x_low, x_high)
+        & valid_scatter["premium"].between(y_low, y_high)
+    ].copy()
 
     plot_scatter["ytm_band"] = pd.cut(
         plot_scatter["ytm"], [-float("inf"), -3, 0, float("inf")],
@@ -409,10 +402,10 @@ if len(valid_scatter):
         .mark_text(align="left", dx=6, dy=-5, fontSize=6 if is_mobile else 7, color="#1D2735", opacity=.82)
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
-    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [-6, 100]})
+    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [0, 100]})
     upper_right = pd.DataFrame({"ytm": [-2.1, 2.15], "premium": [100, 42]})
-    lower_right = pd.DataFrame({"ytm": [-4.0, 2.15], "premium": [-6, 42]})
-    payoff_curve = pd.DataFrame({"ytm": [-3.4, -2.5, -1.5, -.5, .3, .9, 1.5, 2.1], "premium": [-4, -3, -1, 3, 8, 15, 25, 38]})
+    lower_right = pd.DataFrame({"ytm": [-4.0, 2.15], "premium": [0, 42]})
+    payoff_curve = pd.DataFrame({"ytm": [-3.4, -2.5, -1.5, -.5, .3, .9, 1.5, 2.1], "premium": [0, 1, 2, 4, 8, 15, 25, 38]})
     value_note = pd.DataFrame({"ytm": [.9], "premium": [3], "text": ["高性价比区域"]})
     chart = (
         scatter
@@ -449,8 +442,8 @@ pool_mode = st.radio(
 
 filtered = base_filtered.copy()
 if pool_mode == "高性价比":
-    lower_edge = -6 + (filtered["ytm"] + 4) * (48 / 6.15)
-    left_side = -6 + (filtered["ytm"] + 4) * (106 / 1.9)
+    lower_edge = (filtered["ytm"] + 4) * (42 / 6.15)
+    left_side = (filtered["ytm"] + 4) * (100 / 1.9)
     right_side = 100 + (filtered["ytm"] + 2.1) * (-58 / 4.25)
     upper_edge = left_side.where(filtered["ytm"] <= -2.1, right_side)
     filtered = filtered[
