@@ -472,7 +472,7 @@ if len(valid_scatter):
         + alt.Chart(payoff_curve).mark_line(color="#F2A900", strokeWidth=3.8, interpolate="monotone").encode(x=axis_x, y=axis_y)
         + alt.Chart(value_note).mark_text(fontSize=12 if is_mobile else 16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
         + labels
-    ).properties(height=430 if is_mobile else 620, padding=4 if is_mobile else 10).configure_view(stroke="#D7DCE5")
+    ).properties(height=430 if is_mobile else 620).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
