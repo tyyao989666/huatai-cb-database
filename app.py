@@ -303,7 +303,7 @@ section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；气
 valid_scatter = base_filtered.dropna(subset=["ytm", "premium", "balance", "remaining"]).copy()
 if len(valid_scatter):
     # Fixed main view: broad enough to retain the useful valuation structure.
-    x_low, x_high, y_low, y_high = -10, 5, -10, 120
+    x_low, x_high, y_low, y_high = -10, 2.2, -10, 120
     plot_scatter = valid_scatter[
         valid_scatter["ytm"].between(x_low, x_high)
         & valid_scatter["premium"].between(y_low, y_high)
@@ -334,17 +334,17 @@ if len(valid_scatter):
         )
     )
     labels = (
-        alt.Chart(plot_scatter.nlargest(min(32, len(plot_scatter)), "balance"))
-        .mark_text(align="left", dx=7, dy=-6, fontSize=9, color="#111111")
+        alt.Chart(plot_scatter.nlargest(min(48, len(plot_scatter)), "balance"))
+        .mark_text(align="left", dx=7, dy=-6, fontSize=8, color="#1D2735")
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
-    upper_left = pd.DataFrame({"x": [-4.0, -2.1], "y": [-6, 118]})
-    upper_right = pd.DataFrame({"x": [-2.1, 4.8], "y": [118, 42]})
-    lower_right = pd.DataFrame({"x": [-4.0, 4.8], "y": [-6, 42]})
-    payoff_curve = pd.DataFrame({"x": [-3.4, -2.5, -1.5, -.5, .5, 1.5, 2.5, 3.5, 4.6], "y": [-4, -3, -1, 3, 9, 18, 30, 45, 63]})
-    risk_note = pd.DataFrame({"x": [-6.7], "y": [98], "text": ["提防透支正股"]})
-    event_note = pd.DataFrame({"x": [2.7], "y": [83], "text": ["埋伏条款博弈机会"]})
-    value_note = pd.DataFrame({"x": [2.1], "y": [5], "text": ["高性价比区域"]})
+    upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [-6, 118]})
+    upper_right = pd.DataFrame({"ytm": [-2.1, 2.15], "premium": [118, 42]})
+    lower_right = pd.DataFrame({"ytm": [-4.0, 2.15], "premium": [-6, 42]})
+    payoff_curve = pd.DataFrame({"ytm": [-3.4, -2.5, -1.5, -.5, .3, .9, 1.5, 2.1], "premium": [-4, -3, -1, 3, 8, 15, 25, 38]})
+    risk_note = pd.DataFrame({"ytm": [-6.7], "premium": [98], "text": ["提防透支正股"]})
+    event_note = pd.DataFrame({"ytm": [.8], "premium": [83], "text": ["埋伏条款博弈机会"]})
+    value_note = pd.DataFrame({"ytm": [.9], "premium": [3], "text": ["高性价比区域"]})
     chart = (
         scatter
         + alt.Chart(upper_left).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
