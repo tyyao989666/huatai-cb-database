@@ -302,35 +302,19 @@ if numeric_filter_enabled:
 section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；气泡大小代表剩余余额")
 valid_scatter = base_filtered.dropna(subset=["ytm", "premium", "balance", "remaining"]).copy()
 if len(valid_scatter):
-    scatter_scale = st.radio(
-        "坐标范围",
-        ["参考图紧凑区间（YTM -8%–2%；平价溢价率0–100%）", "扩大主体区间（YTM -10%–5%；平价溢价率-20%–250%）", "全部个券（真实上下限）"],
-        index=1,
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    if scatter_scale.startswith("参考图"):
-        x_low, x_high, y_low, y_high = -8, 2, 0, 100
-        plot_scatter = valid_scatter[
-            valid_scatter["ytm"].between(x_low, x_high)
-            & valid_scatter["premium"].between(y_low, y_high)
-        ].copy()
-    elif scatter_scale.startswith("扩大"):
-        x_low, x_high, y_low, y_high = -10, 5, -20, 250
-        plot_scatter = valid_scatter[
-            valid_scatter["ytm"].between(x_low, x_high)
-            & valid_scatter["premium"].between(y_low, y_high)
-        ].copy()
-    else:
-        x_low = math.floor(valid_scatter["ytm"].quantile(.01))
-        x_high = math.ceil(valid_scatter["ytm"].quantile(.99))
-        y_low = math.floor(valid_scatter["premium"].quantile(.01))
-        y_high = math.ceil(valid_scatter["premium"].quantile(.99))
-        plot_scatter = valid_scatter.copy()
+    # Fixed main view: broad enough to retain the useful valuation structure.
+    x_low, x_high, y_low, y_high = -10, 5, -20, 250
+    plot_scatter = valid_scatter[
+        valid_scatter["ytm"].between(x_low, x_high)
+        & valid_scatter["premium"].between(y_low, y_high)
+    ].copy()
 
     plot_scatter["ytm_band"] = pd.cut(
         plot_scatter["ytm"], [-float("inf"), -3, 0, float("inf")],
         labels=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"],
+    )
+    plot_scatter["bond_label"] = plot_scatter.apply(
+        lambda row: f"{row['name']}，{row['remaining']:.1f}年", axis=1
     )
     axis_x = alt.X("ytm:Q", title="YTM（%）", scale=alt.Scale(domain=[x_low, x_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
     axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
@@ -349,14 +333,22 @@ if len(valid_scatter):
             ],
         )
     )
-    boundary = pd.DataFrame({"x": [-4.0, -2.1, -1.8, 1.8], "y": [0, 96, 90, 38]})
-    payoff_curve = pd.DataFrame({"x": [-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 1.75], "y": [0, 0, 1, 4, 11, 21, 31]})
-    annotation = pd.DataFrame({"x": [-6.4, .55], "y": [82, 8], "text": ["提防透支正股", "高性价比区域"]})
+    labels = (
+        alt.Chart(plot_scatter.nlargest(min(115, len(plot_scatter)), "balance"))
+        .mark_text(align="left", dx=7, dy=-6, fontSize=9, color="#111111")
+        .encode(x=axis_x, y=axis_y, text="bond_label:N")
+    )
+    boundary = pd.DataFrame({"x": [-4.0, -2.1, -1.8, 4.8], "y": [-15, 235, 220, 78]})
+    payoff_curve = pd.DataFrame({"x": [-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 4.6], "y": [-15, -14, -10, -2, 12, 30, 53, 85]})
+    risk_note = pd.DataFrame({"x": [-6.8], "y": [195], "text": ["提防透支正股"]})
+    value_note = pd.DataFrame({"x": [1.4], "y": [12], "text": ["高性价比区域"]})
     chart = (
         scatter
+        + labels
         + alt.Chart(boundary).mark_line(color="#111111", strokeDash=[10, 5], strokeWidth=1.8).encode(x=axis_x, y=axis_y)
         + alt.Chart(payoff_curve).mark_line(color="#E3A200", strokeWidth=2.6, interpolate="monotone").encode(x=axis_x, y=axis_y)
-        + alt.Chart(annotation).mark_text(fontSize=16, color="#D65245", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
+        + alt.Chart(risk_note).mark_text(fontSize=16, color="#D65245", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
+        + alt.Chart(value_note).mark_text(fontSize=16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
     ).properties(height=610).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
