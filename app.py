@@ -299,54 +299,68 @@ if numeric_filter_enabled:
         if upper is not None:
             base_filtered = base_filtered[base_filtered[column] <= upper]
 
-section_head("02 / VALUATION MAP", "估值分布", "气泡大小代表剩余余额")
-valid_scatter = base_filtered.dropna(subset=["parity", "premium", "balance"]).copy()
+section_head("02 / VALUATION MAP", "估值分布", "YTM × 纯债溢价率；气泡大小代表剩余余额")
+valid_scatter = base_filtered.dropna(subset=["ytm", "floor_premium", "balance", "remaining"]).copy()
 if len(valid_scatter):
     scatter_scale = st.radio(
         "坐标范围",
-        ["全部个券（真实上下限）", "主体区间（平价0–300；溢价率-20%–300%）"],
+        ["参考图主体区间（YTM -8%–2%；纯债溢价率0–100%）", "全部个券（真实上下限）"],
         horizontal=True,
         label_visibility="collapsed",
     )
-    if scatter_scale == "全部个券（真实上下限）":
-        x_limit = max(120, math.ceil(valid_scatter["parity"].max() * 1.05))
-        y_low = math.floor(valid_scatter["premium"].min() - max(3, abs(valid_scatter["premium"].min()) * .08))
-        y_high = math.ceil(valid_scatter["premium"].max() * 1.05)
-        plot_scatter = valid_scatter
-        clamp_points = False
-    else:
-        x_limit = 300
-        y_low = -20
-        y_high = 300
+    if scatter_scale.startswith("参考图"):
+        x_low, x_high, y_low, y_high = -8, 2, 0, 100
         plot_scatter = valid_scatter[
-            valid_scatter["parity"].between(0, 300)
-            & valid_scatter["premium"].between(-20, 300)
-        ]
-        clamp_points = True
+            valid_scatter["ytm"].between(x_low, x_high)
+            & valid_scatter["floor_premium"].between(y_low, y_high)
+        ].copy()
+    else:
+        x_low = math.floor(valid_scatter["ytm"].quantile(.01))
+        x_high = math.ceil(valid_scatter["ytm"].quantile(.99))
+        y_low = max(-20, math.floor(valid_scatter["floor_premium"].quantile(.01)))
+        y_high = math.ceil(valid_scatter["floor_premium"].quantile(.99))
+        plot_scatter = valid_scatter.copy()
+
+    plot_scatter["ytm_band"] = pd.cut(
+        plot_scatter["ytm"], [-float("inf"), -3, 0, float("inf")],
+        labels=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"],
+    )
+    plot_scatter["bond_label"] = plot_scatter.apply(
+        lambda row: f"{row['name']}，{row['remaining']:.1f}年", axis=1
+    )
+    axis_x = alt.X("ytm:Q", title="YTM（%）", scale=alt.Scale(domain=[x_low, x_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
+    axis_y = alt.Y("floor_premium:Q", title="纯债溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
     scatter = (
         alt.Chart(plot_scatter)
-        .mark_circle(opacity=.72, stroke="#FFFFFF", strokeWidth=.6)
+        .mark_circle(opacity=.88, stroke="#111827", strokeWidth=1.1)
         .encode(
-            x=alt.X("parity:Q", title="转债平价", scale=alt.Scale(domain=[0, x_limit], clamp=clamp_points)),
-            y=alt.Y("premium:Q", title="转股溢价率（%）", scale=alt.Scale(domain=[y_low, y_high], clamp=clamp_points)),
-            size=alt.Size("balance:Q", title="剩余余额（亿元）", scale=alt.Scale(range=[25, 850]), legend=alt.Legend(orient="bottom", direction="horizontal")),
-            color=alt.condition(alt.datum.ytm >= 0, alt.value(BLUE), alt.value(SKY)),
+            x=axis_x,
+            y=axis_y,
+            size=alt.Size("balance:Q", title="剩余余额（亿元）", scale=alt.Scale(range=[35, 900]), legend=alt.Legend(orient="right")),
+            color=alt.Color("ytm_band:N", title="YTM区间", scale=alt.Scale(domain=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"], range=["#D8E4EB", "#5E7DB2", "#073C9B"])),
             tooltip=[
-                alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"),
-                alt.Tooltip("industry:N", title="行业"), alt.Tooltip("price:Q", title="价格", format=".3f"),
-                alt.Tooltip("parity:Q", title="平价", format=".2f"), alt.Tooltip("premium:Q", title="溢价率", format=".2f"),
-                alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("balance:Q", title="余额", format=".2f"),
+                alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"), alt.Tooltip("industry:N", title="行业"),
+                alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("floor_premium:Q", title="纯债溢价率", format=".2f"),
+                alt.Tooltip("balance:Q", title="余额（亿元）", format=".2f"), alt.Tooltip("remaining:Q", title="剩余期限（年）", format=".1f"),
             ],
         )
-        .properties(height=420)
     )
-    rules = alt.Chart(pd.DataFrame({"x": [100], "y": [30]}))
-    st.altair_chart(
+    labels = (
+        alt.Chart(plot_scatter.nlargest(min(65, len(plot_scatter)), "balance"))
+        .mark_text(align="left", dx=8, dy=-7, font="SimHei", fontSize=10, color="#111111")
+        .encode(x=axis_x, y=axis_y, text="bond_label:N")
+    )
+    boundary = pd.DataFrame({"x": [-4.0, -2.1, -1.8, 1.8], "y": [0, 96, 90, 38]})
+    payoff_curve = pd.DataFrame({"x": [-4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 1.75], "y": [0, 0, 1, 4, 11, 21, 31]})
+    annotation = pd.DataFrame({"x": [-6.4, .55], "y": [82, 8], "text": ["提防透支正股", "高性价比区域"]})
+    chart = (
         scatter
-        + rules.mark_rule(color=ORANGE, strokeDash=[5, 5]).encode(x="x:Q")
-        + rules.mark_rule(color=ORANGE, strokeDash=[5, 5]).encode(y="y:Q"),
-        width="stretch",
-    )
+        + labels
+        + alt.Chart(boundary).mark_line(color="#111111", strokeDash=[10, 5], strokeWidth=1.8).encode(x=axis_x, y=axis_y)
+        + alt.Chart(payoff_curve).mark_line(color="#E3A200", strokeWidth=2.6, interpolate="monotone").encode(x=axis_x, y=axis_y)
+        + alt.Chart(annotation).mark_text(font="SimHei", fontSize=16, fontStyle="italic", color="#D65245", angle=-20).encode(x=axis_x, y=axis_y, text="text:N")
+    ).properties(height=610).configure_view(stroke="#D7DCE5")
+    st.altair_chart(chart, width="stretch")
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
 
