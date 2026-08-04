@@ -362,7 +362,15 @@ if numeric_filter_enabled:
             base_filtered = base_filtered[base_filtered[column] <= upper]
 
 section_head("02 / VALUATION MAP", "估值分布", "YTM × 平价溢价率；颜色代表评级，气泡大小代表剩余余额")
-valid_scatter = base_filtered.dropna(subset=["ytm", "premium", "balance", "remaining"]).copy()
+# A valuation point must have a live convertible-bond price and a recorded
+# turnover.  Zeroes are placeholder / non-trading observations and would make
+# the map visually misleading, so they are excluded from this chart only.
+valid_scatter = base_filtered.dropna(
+    subset=["ytm", "premium", "balance", "remaining", "price", "turnover"]
+).copy()
+valid_scatter = valid_scatter[
+    valid_scatter["price"].gt(0) & valid_scatter["turnover"].gt(0)
+]
 if len(valid_scatter):
     # Fixed main view: broad enough to retain the useful valuation structure.
     x_low, x_high, y_low, y_high = -10, 2.2, 0, 180
