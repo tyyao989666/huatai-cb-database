@@ -214,9 +214,9 @@ st.markdown(
     </div>
     <nav class="chapter-nav" aria-label="页面章节导航">
       <a href="#section-01"><b>01 / MARKET</b>市场总览</a>
-      <a href="#section-02"><b>02 / WEEKLY VIEW</b>本周观点</a>
-      <a href="#section-03"><b>03 / BOND UNIVERSE</b>个券机会池</a>
-      <a href="#section-04"><b>04 / VALUATION</b>估值分布</a>
+      <a href="#section-02"><b>02 / VALUATION</b>估值分布</a>
+      <a href="#section-03"><b>03 / WEEKLY VIEW</b>本周观点</a>
+      <a href="#section-04"><b>04 / BOND UNIVERSE</b>个券机会池</a>
       <a href="#section-05"><b>05 / STRUCTURE</b>行业分布</a>
       <a href="#section-06"><b>06 / RATING</b>评级矩阵</a>
       <a href="#section-07"><b>07 / SUPPLY</b>存量与供给</a>
@@ -279,7 +279,78 @@ line = (
 )
 st.altair_chart(line, width="stretch")
 
-section_head("02 / WEEKLY VIEW", "本周观点")
+base_filtered = bonds.copy()
+if query:
+    mask = pd.Series(False, index=base_filtered.index)
+    for col in ["name", "code", "industry", "stock_code"]:
+        mask |= base_filtered[col].fillna("").astype(str).str.contains(query, case=False, regex=False)
+    base_filtered = base_filtered[mask]
+if selected_industries:
+    base_filtered = base_filtered[base_filtered["industry"].isin(selected_industries)]
+if selected_ratings:
+    base_filtered = base_filtered[base_filtered["rating"].isin(selected_ratings)]
+if numeric_filter_enabled:
+    for column, lower, upper in [
+        ("price", price_min, price_max), ("premium", premium_min, premium_max),
+        ("ytm", ytm_min, ytm_max), ("balance", balance_min, balance_max),
+    ]:
+        if lower is not None:
+            base_filtered = base_filtered[base_filtered[column] >= lower]
+        if upper is not None:
+            base_filtered = base_filtered[base_filtered[column] <= upper]
+
+section_head("02 / VALUATION MAP", "估值分布", "气泡大小代表剩余余额")
+valid_scatter = base_filtered.dropna(subset=["parity", "premium", "balance"]).copy()
+if len(valid_scatter):
+    scatter_scale = st.radio(
+        "坐标范围",
+        ["全部个券（真实上下限）", "主体区间（平价0–300；溢价率-20%–300%）"],
+        horizontal=True,
+        label_visibility="collapsed",
+    )
+    if scatter_scale == "全部个券（真实上下限）":
+        x_limit = max(120, math.ceil(valid_scatter["parity"].max() * 1.05))
+        y_low = math.floor(valid_scatter["premium"].min() - max(3, abs(valid_scatter["premium"].min()) * .08))
+        y_high = math.ceil(valid_scatter["premium"].max() * 1.05)
+        plot_scatter = valid_scatter
+        clamp_points = False
+    else:
+        x_limit = 300
+        y_low = -20
+        y_high = 300
+        plot_scatter = valid_scatter[
+            valid_scatter["parity"].between(0, 300)
+            & valid_scatter["premium"].between(-20, 300)
+        ]
+        clamp_points = True
+    scatter = (
+        alt.Chart(plot_scatter)
+        .mark_circle(opacity=.72, stroke="#FFFFFF", strokeWidth=.6)
+        .encode(
+            x=alt.X("parity:Q", title="转债平价", scale=alt.Scale(domain=[0, x_limit], clamp=clamp_points)),
+            y=alt.Y("premium:Q", title="转股溢价率（%）", scale=alt.Scale(domain=[y_low, y_high], clamp=clamp_points)),
+            size=alt.Size("balance:Q", title="剩余余额（亿元）", scale=alt.Scale(range=[25, 850]), legend=alt.Legend(orient="bottom", direction="horizontal")),
+            color=alt.condition(alt.datum.ytm >= 0, alt.value(BLUE), alt.value(SKY)),
+            tooltip=[
+                alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"),
+                alt.Tooltip("industry:N", title="行业"), alt.Tooltip("price:Q", title="价格", format=".3f"),
+                alt.Tooltip("parity:Q", title="平价", format=".2f"), alt.Tooltip("premium:Q", title="溢价率", format=".2f"),
+                alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("balance:Q", title="余额", format=".2f"),
+            ],
+        )
+        .properties(height=420)
+    )
+    rules = alt.Chart(pd.DataFrame({"x": [100], "y": [30]}))
+    st.altair_chart(
+        scatter
+        + rules.mark_rule(color=ORANGE, strokeDash=[5, 5]).encode(x="x:Q")
+        + rules.mark_rule(color=ORANGE, strokeDash=[5, 5]).encode(y="y:Q"),
+        width="stretch",
+    )
+else:
+    st.info("当前筛选条件下没有可绘制的个券。")
+
+section_head("03 / WEEKLY VIEW", "本周观点")
 st.markdown(
     """
     <div class="weekly">
@@ -290,7 +361,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-section_head("03 / BOND UNIVERSE", "个券机会池", "筛选、排序与明细联动")
+section_head("04 / BOND UNIVERSE", "个券机会池", "筛选、排序与明细联动")
 pool_mode = st.radio(
     "机会池",
     ["全市场", "成交活跃", "低溢价", "正YTM", "双高品种"],
@@ -299,25 +370,7 @@ pool_mode = st.radio(
     label_visibility="collapsed",
 )
 
-filtered = bonds.copy()
-if query:
-    mask = pd.Series(False, index=filtered.index)
-    for col in ["name", "code", "industry", "stock_code"]:
-        mask |= filtered[col].fillna("").astype(str).str.contains(query, case=False, regex=False)
-    filtered = filtered[mask]
-if selected_industries:
-    filtered = filtered[filtered["industry"].isin(selected_industries)]
-if selected_ratings:
-    filtered = filtered[filtered["rating"].isin(selected_ratings)]
-if numeric_filter_enabled:
-    for column, lower, upper in [
-        ("price", price_min, price_max), ("premium", premium_min, premium_max),
-        ("ytm", ytm_min, ytm_max), ("balance", balance_min, balance_max),
-    ]:
-        if lower is not None:
-            filtered = filtered[filtered[column] >= lower]
-        if upper is not None:
-            filtered = filtered[filtered[column] <= upper]
+filtered = base_filtered.copy()
 if pool_mode == "成交活跃":
     filtered = filtered[filtered["turnover"] >= filtered["turnover"].quantile(.75)]
 elif pool_mode == "低溢价":
@@ -390,62 +443,6 @@ st.dataframe(
     },
 )
 st.caption("表格可再次点击任意数值列标题排序；当前显示全部筛选结果。")
-
-section_head("04 / VALUATION MAP", "估值分布", "气泡大小代表剩余余额")
-valid_scatter = filtered.dropna(subset=["parity", "premium", "balance"]).copy()
-if len(valid_scatter):
-    scatter_scale = st.radio(
-        "坐标范围",
-        ["全部个券（真实上下限）", "主体区间（平价0–300；溢价率-20%–300%）"],
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-    if scatter_scale == "全部个券（真实上下限）":
-        x_limit = max(120, math.ceil(valid_scatter["parity"].max() * 1.05))
-        y_low = math.floor(valid_scatter["premium"].min() - max(3, abs(valid_scatter["premium"].min()) * .08))
-        y_high = math.ceil(valid_scatter["premium"].max() * 1.05)
-        plot_scatter = valid_scatter
-        clamp_points = False
-    else:
-        x_limit = 300
-        y_low = -20
-        y_high = 300
-        plot_scatter = valid_scatter[
-            valid_scatter["parity"].between(0, 300)
-            & valid_scatter["premium"].between(-20, 300)
-        ]
-        clamp_points = True
-    scatter = (
-        alt.Chart(plot_scatter)
-        .mark_circle(opacity=.72, stroke="#FFFFFF", strokeWidth=.6)
-        .encode(
-            x=alt.X("parity:Q", title="转债平价", scale=alt.Scale(domain=[0, x_limit], clamp=clamp_points)),
-            y=alt.Y("premium:Q", title="转股溢价率（%）", scale=alt.Scale(domain=[y_low, y_high], clamp=clamp_points)),
-            size=alt.Size(
-                "balance:Q",
-                title="剩余余额（亿元）",
-                scale=alt.Scale(range=[25, 850]),
-                legend=alt.Legend(orient="bottom", direction="horizontal"),
-            ),
-            color=alt.condition(alt.datum.ytm >= 0, alt.value(BLUE), alt.value(SKY)),
-            tooltip=[
-                alt.Tooltip("name:N", title="转债"), alt.Tooltip("code:N", title="代码"),
-                alt.Tooltip("industry:N", title="行业"), alt.Tooltip("price:Q", title="价格", format=".3f"),
-                alt.Tooltip("parity:Q", title="平价", format=".2f"), alt.Tooltip("premium:Q", title="溢价率", format=".2f"),
-                alt.Tooltip("ytm:Q", title="YTM", format=".2f"), alt.Tooltip("balance:Q", title="余额", format=".2f"),
-            ],
-        )
-        .properties(height=420)
-    )
-    rules = alt.Chart(pd.DataFrame({"x": [100], "y": [30]}))
-    st.altair_chart(
-        scatter
-        + rules.mark_rule(color=ORANGE, strokeDash=[5, 5]).encode(x="x:Q")
-        + rules.mark_rule(color=ORANGE, strokeDash=[5, 5]).encode(y="y:Q"),
-        width="stretch",
-    )
-else:
-    st.info("当前筛选条件下没有可绘制的个券。")
 
 section_head("05 / MARKET STRUCTURE", "全市场行业分布", "点击行业卡片可回到机会池筛选")
 industry_counts = bonds["industry"].fillna("未分类").value_counts().rename_axis("行业").reset_index(name="只数")
