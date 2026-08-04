@@ -452,7 +452,9 @@ if len(valid_scatter):
     upper_right = pd.DataFrame({"ytm": [-2.0, 2.2], "premium": [180, 42]})
     lower_right = pd.DataFrame({"ytm": [-4.0, 2.2], "premium": [0, 42]})
     payoff_curve = pd.DataFrame(VALUE_CURVE, columns=["ytm", "premium"])
-    value_note = pd.DataFrame({"ytm": [.75], "premium": [2.5], "text": ["高性价比区域"]})
+    # Keep the region label in the open space between the guide lines rather
+    # than on top of the orange curve or the right-edge bond labels.
+    value_note = pd.DataFrame({"ytm": [0.0], "premium": [31.0], "text": ["高性价比区域"]})
     chart = (
         scatter
         + alt.Chart(upper_left).mark_line(color="#111111", strokeDash=[9, 5], strokeWidth=2.5).encode(x=axis_x, y=axis_y)
