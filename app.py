@@ -365,6 +365,7 @@ if len(valid_scatter):
         symbolFillColor="#7EA3D4", symbolStrokeColor="#263952",
         symbolStrokeWidth=.7, symbolOpacity=.9,
     )
+    bubble_size_range = [45, 900] if is_mobile else [70, 1600]
     scatter = (
         alt.Chart(plot_scatter)
         .mark_circle(opacity=.9, stroke="#263952", strokeWidth=.65)
@@ -374,7 +375,7 @@ if len(valid_scatter):
             size=alt.Size(
                 "balance:Q",
                 title="剩余余额（亿元）",
-                scale=alt.Scale(range=[35, 900]),
+                scale=alt.Scale(range=bubble_size_range),
                 legend=size_legend,
             ),
             color=alt.Color(
@@ -399,7 +400,11 @@ if len(valid_scatter):
     label_source = plot_scatter[plot_scatter["balance"] >= 10].copy()
     labels = (
         alt.Chart(label_source)
-        .mark_text(align="left", dx=6, dy=-5, fontSize=6 if is_mobile else 7, color="#1D2735", opacity=.82)
+        .mark_text(
+            align="left", dx=7, dy=-6,
+            fontSize=7 if is_mobile else 9,
+            color="#172235", opacity=.92,
+        )
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
     upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [0, 100]})
@@ -415,7 +420,7 @@ if len(valid_scatter):
         + alt.Chart(payoff_curve).mark_line(color="#F2A900", strokeWidth=3.8, interpolate="monotone").encode(x=axis_x, y=axis_y)
         + alt.Chart(value_note).mark_text(fontSize=16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
         + labels
-    ).properties(height=520 if is_mobile else 720).configure_view(stroke="#D7DCE5")
+    ).properties(height=520 if is_mobile else 620).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
