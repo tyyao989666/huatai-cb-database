@@ -362,7 +362,7 @@ if len(valid_scatter):
     axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
     size_legend = None if is_mobile else alt.Legend(
         orient="bottom", direction="horizontal", columns=5,
-        symbolFillColor="#5E7DB2", symbolStrokeColor="#263952",
+        symbolFillColor="#7EA3D4", symbolStrokeColor="#263952",
         symbolStrokeWidth=.7, symbolOpacity=.9,
     )
     scatter = (
@@ -382,7 +382,7 @@ if len(valid_scatter):
                 title="YTM区间",
                 scale=alt.Scale(
                     domain=["YTM < -3%", "YTM -3%–0%", "YTM ≥ 0%"],
-                    range=["#D8E4EB", "#5E7DB2", "#073C9B"],
+                    range=["#EDF3F5", "#7EA3D4", "#0B4FAE"],
                 ),
                 legend=alt.Legend(
                     orient="bottom", direction="horizontal", columns=3,
@@ -396,7 +396,7 @@ if len(valid_scatter):
             ],
         )
     )
-    label_source = plot_scatter.nlargest(min(36, len(plot_scatter)), "balance") if is_mobile else plot_scatter
+    label_source = plot_scatter[plot_scatter["balance"] >= 10].copy()
     labels = (
         alt.Chart(label_source)
         .mark_text(align="left", dx=6, dy=-5, fontSize=6 if is_mobile else 7, color="#1D2735", opacity=.82)
