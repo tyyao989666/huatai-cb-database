@@ -63,6 +63,13 @@ st.markdown(
     .hero h1 { margin:15px 0 10px; font-family:"HTSC Type",KaiTi,serif !important; font-size:50px; font-weight:400; line-height:1; color:#10233F; letter-spacing:.08em; }
     .hero p { margin:0; color:#647A99; font-size:15px; }
     .hero .date { position:absolute; right:44px; bottom:34px; color:#1F5AA6; font:700 18px Arial,sans-serif; z-index:2; }
+    .chapter-nav { position:sticky; top:3.55rem; z-index:20; display:flex; align-items:stretch; margin:0 0 18px; background:rgba(255,255,255,.96); border:1px solid #D8E2F0; box-shadow:0 10px 25px rgba(24,61,110,.08); overflow-x:auto; }
+    .chapter-nav a { flex:1 0 auto; min-width:140px; padding:13px 18px 11px; color:#6D7F99; font-size:13px; text-decoration:none; border-right:1px solid #E1E8F1; transition:background .16s,color .16s; }
+    .chapter-nav a:last-child { border-right:0; }
+    .chapter-nav a b { display:block; margin-bottom:4px; color:#1F5AA6; font:700 10px Arial,sans-serif; letter-spacing:.12em; }
+    .chapter-nav a:hover { background:#102B56; color:white; }
+    .chapter-nav a:hover b { color:#FFD18B; }
+    .section-anchor { position:relative; top:-5.9rem; visibility:hidden; }
     .section-head { display:flex; justify-content:space-between; align-items:end; margin:42px 0 14px; padding-bottom:13px; border-bottom:1px solid #CBD9EB; }
     .section-head small { color:#E28519; font:10px Arial,sans-serif; letter-spacing:.18em; }
     .section-head h2 { margin:5px 0 0; color:#10233F; font-size:28px; }
@@ -92,6 +99,7 @@ st.markdown(
     @media (max-width:760px) {
       .hero { padding:30px 24px; } .hero h1 { font-size:37px; } .hero .date { position:static; margin-top:20px; display:block; }
       .top-ticker { gap:14px; } .section-head span { display:none; }
+      .chapter-nav { top:3.1rem; } .chapter-nav a { min-width:118px; padding:10px 12px; }
     }
     </style>
     """,
@@ -122,7 +130,9 @@ def metric_card(label, value, unit="", warm=False):
 
 
 def section_head(index, title, note=""):
+    anchor = index.split()[0]
     st.markdown(
+        f'<div id="section-{anchor}" class="section-anchor"></div>'
         f'<div class="section-head"><div><small>{index}</small><h2>{title}</h2></div><span>{note}</span></div>',
         unsafe_allow_html=True,
     )
@@ -196,6 +206,15 @@ st.markdown(
       <p>市场数据、估值结构、个券筛选与供给变化</p>
       <span class="date">2026 / 07 / 31</span>
     </div>
+    <nav class="chapter-nav" aria-label="页面章节导航">
+      <a href="#section-01"><b>01 / MARKET</b>市场总览</a>
+      <a href="#section-02"><b>02 / WEEKLY VIEW</b>本周观点</a>
+      <a href="#section-03"><b>03 / BOND UNIVERSE</b>个券机会池</a>
+      <a href="#section-04"><b>04 / VALUATION</b>估值分布</a>
+      <a href="#section-05"><b>05 / STRUCTURE</b>行业分布</a>
+      <a href="#section-06"><b>06 / RATING</b>评级矩阵</a>
+      <a href="#section-07"><b>07 / SUPPLY</b>存量与供给</a>
+    </nav>
     """,
     unsafe_allow_html=True,
 )
