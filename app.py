@@ -31,6 +31,10 @@ st.markdown(
     [data-testid="stSidebar"], [data-testid="stDataFrame"] * {
         font-family:"HTSC Type", Arial, SimHei, "Microsoft YaHei", sans-serif !important;
     }
+    [data-testid="stIconMaterial"], .material-symbols-rounded, [class*="material-symbols"] {
+        font-family:"Material Symbols Rounded" !important;
+        font-weight:normal !important; font-style:normal !important;
+    }
     [data-testid="stAppViewContainer"] {
         background:
           linear-gradient(rgba(31,90,166,.035) 1px, transparent 1px),
@@ -132,6 +136,7 @@ st.markdown(
       .industry-grid [data-testid="stButton"] button { min-height:58px; padding:8px 10px; font-size:12px; }
       div[data-testid="stDataFrame"] { overflow-x:auto; box-shadow:none; }
       [data-testid="stVegaLiteChart"] { overflow-x:auto; overscroll-behavior-x:contain; }
+      [data-testid="stToolbar"] { display:none !important; }
       button[data-baseweb="tab"] { padding:8px 11px; font-size:12px; }
     }
     @media (max-width:430px) {
@@ -190,6 +195,11 @@ def reset_filters():
 
 
 bonds, market, supply = load_data()
+try:
+    user_agent = str(st.context.headers.get("User-Agent", "")).lower()
+except Exception:
+    user_agent = ""
+is_mobile = any(token in user_agent for token in ["iphone", "android", "mobile", "ipod"])
 latest = market.sort_values("date").iloc[-1]
 latest_supply = supply.sort_values("date").iloc[-1]
 year_end = supply[supply["date"] <= pd.Timestamp("2025-12-31")].sort_values("date").iloc[-1]
@@ -350,6 +360,11 @@ if len(valid_scatter):
     )
     axis_x = alt.X("ytm:Q", title="YTM（%）", scale=alt.Scale(domain=[x_low, x_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
     axis_y = alt.Y("premium:Q", title="平价溢价率（%）", scale=alt.Scale(domain=[y_low, y_high]), axis=alt.Axis(grid=True, gridDash=[6, 5], gridColor="#B9C1CD", tickCount=8))
+    size_legend = None if is_mobile else alt.Legend(
+        orient="bottom", direction="horizontal", columns=5,
+        symbolFillColor="#5E7DB2", symbolStrokeColor="#263952",
+        symbolStrokeWidth=.7, symbolOpacity=.9,
+    )
     scatter = (
         alt.Chart(plot_scatter)
         .mark_circle(opacity=.9, stroke="#263952", strokeWidth=.65)
@@ -360,11 +375,7 @@ if len(valid_scatter):
                 "balance:Q",
                 title="剩余余额（亿元）",
                 scale=alt.Scale(range=[35, 900]),
-                legend=alt.Legend(
-                    orient="bottom", direction="horizontal", columns=5,
-                    symbolFillColor="#5E7DB2", symbolStrokeColor="#263952",
-                    symbolStrokeWidth=.7, symbolOpacity=.9,
-                ),
+                legend=size_legend,
             ),
             color=alt.Color(
                 "ytm_band:N",
@@ -385,9 +396,10 @@ if len(valid_scatter):
             ],
         )
     )
+    label_source = plot_scatter.nlargest(min(36, len(plot_scatter)), "balance") if is_mobile else plot_scatter
     labels = (
-        alt.Chart(plot_scatter)
-        .mark_text(align="left", dx=6, dy=-5, fontSize=7, color="#1D2735", opacity=.82)
+        alt.Chart(label_source)
+        .mark_text(align="left", dx=6, dy=-5, fontSize=6 if is_mobile else 7, color="#1D2735", opacity=.82)
         .encode(x=axis_x, y=axis_y, text="bond_label:N")
     )
     upper_left = pd.DataFrame({"ytm": [-4.0, -2.1], "premium": [-6, 100]})
@@ -403,7 +415,7 @@ if len(valid_scatter):
         + alt.Chart(payoff_curve).mark_line(color="#F2A900", strokeWidth=3.8, interpolate="monotone").encode(x=axis_x, y=axis_y)
         + alt.Chart(value_note).mark_text(fontSize=16, color="#102B56", angle=340).encode(x=axis_x, y=axis_y, text="text:N")
         + labels
-    ).properties(height=610).configure_view(stroke="#D7DCE5")
+    ).properties(height=520 if is_mobile else 610).configure_view(stroke="#D7DCE5")
     st.altair_chart(chart, width="stretch")
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
