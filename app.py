@@ -448,8 +448,8 @@ if len(valid_scatter):
     )
     # Fixed structural guides: bottom anchor, top anchor and right anchor.
     # They describe valuation structure only and do not define a selection area.
-    upper_left = pd.DataFrame({"ytm": [-4.0, 0.0], "premium": [0, 180]})
-    upper_right = pd.DataFrame({"ytm": [0.0, 2.2], "premium": [180, 42]})
+    upper_left = pd.DataFrame({"ytm": [-4.0, -2.0], "premium": [0, 180]})
+    upper_right = pd.DataFrame({"ytm": [-2.0, 2.2], "premium": [180, 42]})
     lower_right = pd.DataFrame({"ytm": [-4.0, 2.2], "premium": [0, 42]})
     payoff_curve = pd.DataFrame(VALUE_CURVE, columns=["ytm", "premium"])
     value_note = pd.DataFrame({"ytm": [.75], "premium": [2.5], "text": ["高性价比区域"]})
