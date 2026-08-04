@@ -42,9 +42,16 @@ st.markdown(
     [data-testid="stHeader"] { background:rgba(244,247,251,.78); backdrop-filter:blur(10px); }
     [data-testid="stSidebar"] { background:linear-gradient(165deg,#102B56 0%,#173B73 100%); border-right:1px solid rgba(255,255,255,.12); }
     [data-testid="stSidebar"] * { color:#F8FBFF; }
-    [data-testid="stSidebar"] input, [data-testid="stSidebar"] [data-baseweb="select"] > div {
-        background:rgba(255,255,255,.09); border-color:rgba(255,255,255,.2); color:white;
+    /* Sidebar controls remain white, but entered values must read as black. */
+    [data-testid="stSidebar"] input {
+        background:#FFFFFF !important; border-color:#FFFFFF !important;
+        color:#10233F !important; caret-color:#10233F !important;
     }
+    [data-testid="stSidebar"] input::placeholder { color:#7A8BA4 !important; opacity:1; }
+    [data-testid="stSidebar"] [data-baseweb="select"] > div {
+        background:#FFFFFF !important; border-color:#FFFFFF !important; color:#10233F !important;
+    }
+    [data-testid="stSidebar"] [data-baseweb="select"] * { color:#10233F !important; }
     [data-testid="stSidebar"] hr { border-color:rgba(255,255,255,.15); }
     [data-testid="stSidebar"] .stButton button { width:100%; background:transparent; border:1px solid rgba(255,255,255,.25); color:white; }
     [data-testid="stSidebar"] .stButton button:hover { border-color:#E99A2F; color:#FFD18B; }
