@@ -454,6 +454,8 @@ with st.sidebar:
         with st.expander("账户登录 · 保存研究记录", expanded=False):
             auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, label_visibility="collapsed")
             with st.form("account_form", clear_on_submit=False):
+                if cloud_workspace_enabled():
+                    st.caption("云端多人模式：请使用邮箱注册和登录，方案与自选债将跨设备同步。")
                 auth_name = st.text_input("用户名", placeholder="至少3个字符")
                 auth_password = st.text_input("密码", type="password", placeholder="至少8个字符")
                 auth_submit = st.form_submit_button(auth_mode, width="stretch")
