@@ -488,6 +488,8 @@ with st.sidebar:
             f'<div class="account-card"><small>PERSONAL RESEARCH DESK</small><b>{auth_user["username"]}</b></div>',
             unsafe_allow_html=True,
         )
+        if notice := st.session_state.pop("workspace_notice", None):
+            st.success(notice)
         st.markdown('<a class="workspace-jump" href="#workspace">↓ 保存筛选方案 · 管理我的自选</a>', unsafe_allow_html=True)
         plans = saved_screens(auth_user)
         if plans:
@@ -864,7 +866,8 @@ if auth_user:
                 "sort_direction": sort_order,
             }
             if save_screen(auth_user, screen_name, payload):
-                st.success("筛选方案已保存")
+                st.session_state["workspace_notice"] = f"已保存方案：{screen_name.strip()}"
+                st.rerun()
             else:
                 st.warning("请填写筛选方案名称")
     with workspace_right:
@@ -879,7 +882,8 @@ if auth_user:
             watchlist_submit = st.form_submit_button("加入我的自选", width="stretch")
         if watchlist_submit:
             add_watchlist(auth_user, [bond_lookup[label] for label in selected_watch_labels])
-            st.success(f"已加入 {len(selected_watch_labels)} 只个券")
+            st.session_state["workspace_notice"] = f"已加入 {len(selected_watch_labels)} 只个券至我的自选"
+            st.rerun()
 
     personal_codes = watchlist_codes(auth_user)
     if personal_codes:
