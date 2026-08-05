@@ -6,6 +6,7 @@ user's access token.  The service-role key is never required by the app.
 from __future__ import annotations
 
 import os
+import re
 from typing import Any
 
 import requests
@@ -45,6 +46,10 @@ def _error(response: requests.Response) -> str:
 
 
 def sign_up(email: str, password: str) -> tuple[dict[str, Any] | None, str | None]:
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email.strip()):
+        return None, "请输入有效的邮箱地址。"
+    if len(password) < 8:
+        return None, "密码至少需要 8 个字符。"
     response = requests.post(
         f"{_base()}/auth/v1/signup", headers=_headers(), json={"email": email.strip(), "password": password}, timeout=15
     )
@@ -59,6 +64,8 @@ def sign_up(email: str, password: str) -> tuple[dict[str, Any] | None, str | Non
 
 
 def sign_in(email: str, password: str) -> tuple[dict[str, Any] | None, str | None]:
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email.strip()):
+        return None, "请输入有效的邮箱地址。"
     response = requests.post(
         f"{_base()}/auth/v1/token?grant_type=password", headers=_headers(), json={"email": email.strip(), "password": password}, timeout=15
     )

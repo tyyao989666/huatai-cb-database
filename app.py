@@ -456,7 +456,9 @@ with st.sidebar:
             with st.form("account_form", clear_on_submit=False):
                 if cloud_workspace_enabled():
                     st.caption("云端多人模式：请使用邮箱注册和登录，方案与自选债将跨设备同步。")
-                auth_name = st.text_input("用户名", placeholder="至少3个字符")
+                auth_identity_label = "邮箱地址" if cloud_workspace_enabled() else "用户名"
+                auth_identity_placeholder = "name@example.com" if cloud_workspace_enabled() else "至少3个字符"
+                auth_name = st.text_input(auth_identity_label, placeholder=auth_identity_placeholder)
                 auth_password = st.text_input("密码", type="password", placeholder="至少8个字符")
                 auth_submit = st.form_submit_button(auth_mode, width="stretch")
             if auth_submit:
@@ -473,7 +475,7 @@ with st.sidebar:
                         st.session_state["auth_user"] = user
                         st.rerun()
                     else:
-                        st.error("用户名或密码不正确")
+                        st.error(error or ("邮箱或密码不正确" if cloud_workspace_enabled() else "用户名或密码不正确"))
     else:
         st.markdown(
             f'<div class="account-card"><small>PERSONAL RESEARCH DESK</small><b>{auth_user["username"]}</b></div>',
