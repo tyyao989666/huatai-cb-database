@@ -5,3 +5,4 @@ __pycache__/
 data/user_workspace.db
 data/user_workspace.db-shm
 data/user_workspace.db-wal
+.streamlit/secrets.toml

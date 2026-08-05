@@ -9,6 +9,7 @@ import sqlite3
 import altair as alt
 import pandas as pd
 import streamlit as st
+import supabase_backend as supabase
 
 
 st.set_page_config(
@@ -82,7 +83,7 @@ def password_digest(password, salt_hex):
     ).hex()
 
 
-def register_user(username, password):
+def local_register_user(username, password):
     username = username.strip()
     if len(username) < 3:
         return None, "用户名至少需要3个字符"
@@ -103,7 +104,7 @@ def register_user(username, password):
         return None, "用户名已存在"
 
 
-def authenticate_user(username, password):
+def local_authenticate_user(username, password):
     with sqlite3.connect(USER_DB) as conn:
         row = conn.execute(
             "SELECT id, username, password_hash, salt FROM users WHERE username = ? COLLATE NOCASE",
@@ -114,7 +115,7 @@ def authenticate_user(username, password):
     return None
 
 
-def saved_screens(user_id):
+def local_saved_screens(user_id):
     with sqlite3.connect(USER_DB) as conn:
         rows = conn.execute(
             "SELECT id, name, payload, updated_at FROM saved_screens WHERE user_id = ? ORDER BY updated_at DESC",
@@ -123,7 +124,7 @@ def saved_screens(user_id):
     return [{"id": row[0], "name": row[1], "payload": json.loads(row[2]), "updated_at": row[3]} for row in rows]
 
 
-def save_screen(user_id, name, payload):
+def local_save_screen(user_id, name, payload):
     name = name.strip()
     if not name:
         return False
@@ -136,12 +137,12 @@ def save_screen(user_id, name, payload):
     return True
 
 
-def delete_screen(user_id, screen_id):
+def local_delete_screen(user_id, screen_id):
     with sqlite3.connect(USER_DB) as conn:
         conn.execute("DELETE FROM saved_screens WHERE user_id = ? AND id = ?", (user_id, screen_id))
 
 
-def add_watchlist(user_id, codes):
+def local_add_watchlist(user_id, codes):
     timestamp = datetime.now(timezone.utc).isoformat()
     with sqlite3.connect(USER_DB) as conn:
         conn.executemany(
@@ -150,7 +151,7 @@ def add_watchlist(user_id, codes):
         )
 
 
-def remove_watchlist(user_id, codes):
+def local_remove_watchlist(user_id, codes):
     with sqlite3.connect(USER_DB) as conn:
         conn.executemany(
             "DELETE FROM watchlist WHERE user_id = ? AND bond_code = ?",
@@ -158,12 +159,68 @@ def remove_watchlist(user_id, codes):
         )
 
 
-def watchlist_codes(user_id):
+def local_watchlist_codes(user_id):
     with sqlite3.connect(USER_DB) as conn:
         rows = conn.execute(
             "SELECT bond_code FROM watchlist WHERE user_id = ? ORDER BY added_at DESC", (user_id,)
         ).fetchall()
     return [row[0] for row in rows]
+
+
+def cloud_workspace_enabled():
+    return supabase.configured()
+
+
+def register_user(identifier, password):
+    if cloud_workspace_enabled():
+        return supabase.sign_up(identifier, password)
+    return local_register_user(identifier, password)
+
+
+def authenticate_user(identifier, password):
+    if cloud_workspace_enabled():
+        return supabase.sign_in(identifier, password)
+    user = local_authenticate_user(identifier, password)
+    return user, None if user else "用户名或密码不正确"
+
+
+def saved_screens(auth_user):
+    if cloud_workspace_enabled():
+        return supabase.list_screens(auth_user)
+    return local_saved_screens(auth_user["id"])
+
+
+def save_screen(auth_user, name, payload):
+    name = name.strip()
+    if not name:
+        return False
+    if cloud_workspace_enabled():
+        return supabase.upsert_screen(auth_user, name, payload)
+    return local_save_screen(auth_user["id"], name, payload)
+
+
+def delete_screen(auth_user, screen_id):
+    if cloud_workspace_enabled():
+        return supabase.remove_screen(auth_user, screen_id)
+    return local_delete_screen(auth_user["id"], screen_id)
+
+
+def add_watchlist(auth_user, codes):
+    if cloud_workspace_enabled():
+        return supabase.add_to_watchlist(auth_user, codes)
+    return local_add_watchlist(auth_user["id"], codes)
+
+
+def remove_watchlist(auth_user, codes):
+    if cloud_workspace_enabled():
+        return supabase.remove_from_watchlist(auth_user, codes)
+    return local_remove_watchlist(auth_user["id"], codes)
+
+
+def watchlist_codes(auth_user):
+    if cloud_workspace_enabled():
+        return supabase.list_watchlist(auth_user)
+    return local_watchlist_codes(auth_user["id"])
 
 st.markdown(
     """
@@ -368,7 +425,8 @@ def apply_screen(payload):
             st.session_state[key] = value
 
 
-init_user_db()
+if not cloud_workspace_enabled():
+    init_user_db()
 bonds, market, supply = load_data()
 try:
     user_agent = str(st.context.headers.get("User-Agent", "")).lower()
@@ -408,7 +466,7 @@ with st.sidebar:
                         st.session_state["auth_user"] = user
                         st.rerun()
                 else:
-                    user = authenticate_user(auth_name, auth_password)
+                    user, error = authenticate_user(auth_name, auth_password)
                     if user:
                         st.session_state["auth_user"] = user
                         st.rerun()
@@ -419,7 +477,7 @@ with st.sidebar:
             f'<div class="account-card"><small>PERSONAL RESEARCH DESK</small><b>{auth_user["username"]}</b></div>',
             unsafe_allow_html=True,
         )
-        plans = saved_screens(auth_user["id"])
+        plans = saved_screens(auth_user)
         if plans:
             plan_map = {plan["name"]: plan for plan in plans}
             chosen_plan_name = st.selectbox("已保存筛选方案", list(plan_map), key="selected_saved_screen")
@@ -430,7 +488,7 @@ with st.sidebar:
                     st.rerun()
             with delete_col:
                 if st.button("删除方案", width="stretch"):
-                    delete_screen(auth_user["id"], plan_map[chosen_plan_name]["id"])
+                    delete_screen(auth_user, plan_map[chosen_plan_name]["id"])
                     st.rerun()
         else:
             st.caption("尚未保存筛选方案")
@@ -793,7 +851,7 @@ if auth_user:
                 "sort_metric": sort_label,
                 "sort_direction": sort_order,
             }
-            if save_screen(auth_user["id"], screen_name, payload):
+            if save_screen(auth_user, screen_name, payload):
                 st.success("筛选方案已保存")
             else:
                 st.warning("请填写筛选方案名称")
@@ -808,10 +866,10 @@ if auth_user:
             )
             watchlist_submit = st.form_submit_button("加入我的自选", width="stretch")
         if watchlist_submit:
-            add_watchlist(auth_user["id"], [bond_lookup[label] for label in selected_watch_labels])
+            add_watchlist(auth_user, [bond_lookup[label] for label in selected_watch_labels])
             st.success(f"已加入 {len(selected_watch_labels)} 只个券")
 
-    personal_codes = watchlist_codes(auth_user["id"])
+    personal_codes = watchlist_codes(auth_user)
     if personal_codes:
         st.markdown("#### 我的自选")
         watch_table = bonds[bonds["code"].isin(personal_codes)].copy()
@@ -827,7 +885,7 @@ if auth_user:
             st.write("")
             st.write("")
             if st.button("移除所选", width="stretch"):
-                remove_watchlist(auth_user["id"], [remove_lookup[label] for label in selected_remove_labels])
+                remove_watchlist(auth_user, [remove_lookup[label] for label in selected_remove_labels])
                 st.rerun()
         st.dataframe(
             watch_table.rename(columns={
