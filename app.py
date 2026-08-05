@@ -246,6 +246,9 @@ st.markdown(
     [data-testid="stHeader"] { background:rgba(244,247,251,.78); backdrop-filter:blur(10px); }
     [data-testid="stSidebar"] { background:linear-gradient(165deg,#102B56 0%,#173B73 100%); border-right:1px solid rgba(255,255,255,.12); }
     [data-testid="stSidebar"] * { color:#F8FBFF; }
+    [data-testid="stSidebar"] details { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.26); border-radius:4px; overflow:hidden; }
+    [data-testid="stSidebar"] details summary { background:#23477D; color:#FFFFFF !important; font-weight:700; }
+    [data-testid="stSidebar"] details summary * { color:#FFFFFF !important; }
     /* Sidebar controls remain white, but entered values must read as black. */
     [data-testid="stSidebar"] input {
         background:#FFFFFF !important; border-color:#FFFFFF !important;
@@ -259,12 +262,16 @@ st.markdown(
     [data-testid="stSidebar"] hr { border-color:rgba(255,255,255,.15); }
     [data-testid="stSidebar"] .stButton button { width:100%; background:transparent; border:1px solid rgba(255,255,255,.25); color:white; }
     [data-testid="stSidebar"] .stButton button:hover { border-color:#E99A2F; color:#FFD18B; }
+    [data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button { background:#E99A2F !important; border-color:#E99A2F !important; color:#102B56 !important; font-weight:700; }
+    [data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button:hover { background:#FFD18B !important; border-color:#FFD18B !important; color:#102B56 !important; }
     .block-container { max-width:1540px; padding-top:1.1rem; padding-bottom:4rem; }
     .account-card { margin:0 0 14px; padding:13px 14px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.07); }
     .account-card small { display:block; opacity:.62; font:10px Arial,sans-serif; letter-spacing:.12em; }
     .account-card b { display:block; margin-top:5px; font-size:16px; }
     .workspace-strip { margin:12px 0 16px; padding:14px 16px; background:#E8EEF7; border:1px solid #D2DEED; color:#4C6485; }
     .workspace-strip b { color:#102B56; }
+    .workspace-jump { display:block; margin:0 0 13px; padding:11px 12px; border-left:3px solid #E99A2F; background:rgba(233,154,47,.13); color:#FFF2D9 !important; font-size:13px; font-weight:700; text-decoration:none; }
+    .workspace-jump:hover { background:rgba(233,154,47,.25); color:#FFFFFF !important; }
     .brand-lockup { padding:8px 0 20px; border-bottom:1px solid rgba(255,255,255,.17); margin-bottom:18px; }
     .brand-lockup b { font-size:25px; letter-spacing:.08em; }
     .brand-lockup span { display:block; margin-top:6px; font-family:Arial,sans-serif; font-size:10px; letter-spacing:.22em; opacity:.6; }
@@ -481,6 +488,7 @@ with st.sidebar:
             f'<div class="account-card"><small>PERSONAL RESEARCH DESK</small><b>{auth_user["username"]}</b></div>',
             unsafe_allow_html=True,
         )
+        st.markdown('<a class="workspace-jump" href="#workspace">↓ 保存筛选方案 · 管理我的自选</a>', unsafe_allow_html=True)
         plans = saved_screens(auth_user)
         if plans:
             plan_map = {plan["name"]: plan for plan in plans}
@@ -829,7 +837,7 @@ filtered = filtered.sort_values(sort_options[sort_label], ascending=sort_order =
 auth_user = st.session_state["auth_user"]
 if auth_user:
     st.markdown(
-        f'<div class="workspace-strip"><b>{auth_user["username"]} 的研究工作台</b>　'
+        f'<div id="workspace" class="workspace-strip"><b>{auth_user["username"]} 的研究工作台</b>　'
         f'保存筛选方案、建立个券自选，并在下次登录后继续使用。</div>',
         unsafe_allow_html=True,
     )
