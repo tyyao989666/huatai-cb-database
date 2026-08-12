@@ -402,10 +402,15 @@ st.markdown(
 
 
 @st.cache_data
-def load_data():
+def load_data(data_version):
+    # The explicit version invalidates Streamlit Cloud's persisted cache when
+    # the bundled CSV schema or reporting date changes.
+    del data_version
     bonds = pd.read_csv(BASE / "data" / "bonds.csv")
     market = pd.read_csv(BASE / "data" / "market_history.csv", parse_dates=["date"])
     supply = pd.read_csv(BASE / "data" / "supply_history.csv", parse_dates=["date"])
+    if "stock_name" not in bonds.columns:
+        bonds["stock_name"] = ""
     return bonds, market, supply
 
 
@@ -519,7 +524,7 @@ def apply_screen(payload):
 
 if not cloud_workspace_enabled():
     init_user_db()
-bonds, market, supply = load_data()
+bonds, market, supply = load_data("2026-08-07-stock-schema-v2")
 try:
     user_agent = str(st.context.headers.get("User-Agent", "")).lower()
 except Exception:
