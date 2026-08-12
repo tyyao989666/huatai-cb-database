@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import datetime, timezone
+import html
 import hashlib
 import json
 import math
@@ -274,6 +275,20 @@ st.markdown(
     .workspace-jump:hover { background:rgba(233,154,47,.25); color:#FFFFFF !important; }
     .mobile-account { display:none; }
     .mobile-actions { display:none; }
+    .mobile-bond-list { display:grid; gap:9px; margin-top:10px; }
+    .mobile-bond-card { padding:13px 14px 12px; background:#FFFFFF; border:1px solid #D5E0EE; border-left:3px solid #1F5AA6; box-shadow:0 7px 18px rgba(24,61,110,.06); }
+    .mobile-bond-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding-bottom:9px; border-bottom:1px solid #E5EBF3; }
+    .mobile-bond-head b { color:#10233F; font-size:15px; }
+    .mobile-bond-head small { display:block; margin-top:3px; color:#7185A0; font:10px Arial,sans-serif; }
+    .mobile-bond-head em { color:#5C7291; font-style:normal; font-size:11px; white-space:nowrap; }
+    .mobile-bond-pair { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:10px 0 8px; }
+    .mobile-bond-pair > div { padding:8px 9px; background:#F3F6FA; }
+    .mobile-bond-pair span { display:block; color:#7386A1; font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mobile-bond-pair strong { color:#102B56; font:700 18px Arial,sans-serif; }
+    .mobile-bond-pair i { margin-left:7px; font:normal 11px Arial,sans-serif; }
+    .mobile-bond-pair i.up { color:#C94B55; } .mobile-bond-pair i.down { color:#1F7A57; } .mobile-bond-pair i.flat { color:#7185A0; }
+    .mobile-bond-meta { display:flex; flex-wrap:wrap; gap:5px 13px; color:#536B8C; font-size:11px; }
+    .mobile-bond-meta b { color:#10233F; font:700 11px Arial,sans-serif; }
     .brand-lockup { padding:8px 0 20px; border-bottom:1px solid rgba(255,255,255,.17); margin-bottom:18px; }
     .brand-lockup b { font-size:25px; letter-spacing:.08em; }
     .brand-lockup span { display:block; margin-top:6px; font-family:Arial,sans-serif; font-size:10px; letter-spacing:.22em; opacity:.6; }
@@ -322,7 +337,8 @@ st.markdown(
     button[data-baseweb="tab"][aria-selected="true"] { background:#1F5AA6; color:white; }
     footer { visibility:hidden; }
     @media (max-width:760px) {
-      .block-container { width:100%; padding:0.65rem 0.8rem 3rem !important; }
+      [data-testid="stHeader"] { height:2.15rem; }
+      .block-container { width:100%; padding:0.25rem 0.8rem 3rem !important; }
       .hero { margin:13px 0 12px; padding:27px 20px 24px; }
       .hero:after { width:190px; height:190px; right:-80px; top:-105px; border-width:34px; }
       .hero h1 { margin-top:11px; font-size:34px; line-height:1.15; letter-spacing:.04em; }
@@ -334,12 +350,17 @@ st.markdown(
       [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display:none !important; }
       [data-testid="stAppViewContainer"] > .main { margin-left:0 !important; width:100% !important; }
       [data-testid="collapsedControl"] { display:none !important; }
-      .mobile-account { display:block; margin:0 0 12px; padding:12px 14px; background:#102B56; border-left:4px solid #E99A2F; box-shadow:0 10px 24px rgba(16,43,86,.15); }
-      .mobile-account b { display:block; color:#FFFFFF; font-size:14px; }
-      .mobile-account span { display:block; margin-top:3px; color:#C9D9F1; font-size:11px; }
-      .mobile-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 15px; }
-      .mobile-actions a { display:block; padding:10px 9px; color:#102B56 !important; background:#FFFFFF; border:1px solid #C8D8EA; border-radius:3px; text-align:center; text-decoration:none; font-size:12px; font-weight:700; }
+      .mobile-account { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 7px; padding:9px 11px; background:#102B56; border-left:3px solid #E99A2F; box-shadow:0 7px 18px rgba(16,43,86,.12); }
+      .mobile-account b { display:block; color:#FFFFFF; font-size:12px; }
+      .mobile-account span { display:block; margin-top:2px; color:#C9D9F1; font-size:10px; }
+      .mobile-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin:0 0 8px; }
+      .mobile-actions a { display:block; padding:8px 5px; color:#102B56 !important; background:#FFFFFF; border:1px solid #C8D8EA; border-radius:3px; text-align:center; text-decoration:none; font-size:11px; font-weight:700; }
       .mobile-actions a:last-child { background:#1F5AA6; color:#FFFFFF !important; border-color:#1F5AA6; }
+      [data-testid="stMain"] details { background:#FFFFFF; border:1px solid #C8D8EA; border-radius:3px; margin-bottom:8px; box-shadow:none; }
+      [data-testid="stMain"] details summary { color:#102B56; font-size:12px; font-weight:700; }
+      [data-testid="stMain"] details input { background:#FFFFFF !important; color:#10233F !important; caret-color:#10233F !important; }
+      [data-testid="stMain"] details input::placeholder { color:#7A8BA4 !important; opacity:1; }
+      [data-testid="stMain"] [data-testid="stForm"] { padding:.25rem 0 0; border:0; }
       .top-ticker span { font-size:11px; } .top-ticker b { font-size:12px; }
       .chapter-nav { top:2.9rem; margin:0 -0.2rem 13px; box-shadow:0 7px 18px rgba(24,61,110,.08); scrollbar-width:none; }
       .chapter-nav::-webkit-scrollbar { display:none; }
@@ -394,6 +415,50 @@ def fmt(value, digits=2):
     return f"{value:,.{digits}f}"
 
 
+def bond_output_table(frame):
+    return frame.rename(
+        columns={
+            "name": "转债名称", "code": "转债代码", "stock_code": "正股代码", "stock_name": "正股名称",
+            "industry": "行业", "price": "价格", "stock_price": "正股价格",
+            "stock_change_5d": "正股5日涨跌", "change_5d": "转债5日涨跌",
+            "change": "转债涨跌", "stock_change": "正股涨跌", "turnover": "成交额(百万元)",
+            "parity": "平价", "premium": "转股溢价率", "ytm": "YTM", "floor_premium": "纯债溢价率",
+            "remaining": "剩余期限", "balance": "剩余余额(亿元)", "rating": "评级", "list_date": "上市日期",
+        }
+    )[[
+        "转债名称", "转债代码", "正股名称", "正股代码", "行业", "价格", "正股价格",
+        "转债涨跌", "正股涨跌", "转债5日涨跌", "正股5日涨跌", "成交额(百万元)",
+        "平价", "转股溢价率", "YTM", "纯债溢价率", "剩余期限", "剩余余额(亿元)", "评级", "上市日期",
+    ]]
+
+
+def mobile_bond_cards(frame):
+    cards = []
+    for row in frame.itertuples(index=False):
+        bond_move = "up" if row.change > 0 else "down" if row.change < 0 else "flat"
+        stock_move = "up" if row.stock_change > 0 else "down" if row.stock_change < 0 else "flat"
+        stock_name = "—" if pd.isna(row.stock_name) or not str(row.stock_name).strip() else str(row.stock_name)
+        cards.append(
+            '<article class="mobile-bond-card">'
+            f'<div class="mobile-bond-head"><div><b>{html.escape(str(row.name))}</b>'
+            f'<small>{html.escape(str(row.code))} · {html.escape(str(row.industry))}</small></div>'
+            f'<em>{html.escape(str(row.rating))}</em></div>'
+            '<div class="mobile-bond-pair">'
+            f'<div><span>转债价格</span><strong>{fmt(row.price, 3)}</strong><i class="{bond_move}">{row.change:+.2f}%</i></div>'
+            f'<div><span>{html.escape(stock_name)} · {html.escape(str(row.stock_code))}</span>'
+            f'<strong>{fmt(row.stock_price, 3)}</strong><i class="{stock_move}">{row.stock_change:+.2f}%</i></div>'
+            '</div>'
+            '<div class="mobile-bond-meta">'
+            f'<span>YTM <b>{fmt(row.ytm)}%</b></span>'
+            f'<span>溢价率 <b>{fmt(row.premium)}%</b></span>'
+            f'<span>平价 <b>{fmt(row.parity)}</b></span>'
+            f'<span>余额 <b>{fmt(row.balance)}亿</b></span>'
+            f'<span>成交 <b>{fmt(row.turnover)}百万元</b></span>'
+            '</div></article>'
+        )
+    return '<div class="mobile-bond-list">' + "".join(cards) + "</div>"
+
+
 def metric_card(label, value, unit="", warm=False):
     st.markdown(
         f'<div class="metric-card{" warm" if warm else ""}"><span>{label}</span>'
@@ -413,6 +478,7 @@ def section_head(index, title, note=""):
 
 def choose_industry(name):
     st.session_state["industry_filter"] = [name]
+    st.session_state["mobile_industry_filter"] = [name]
     st.session_state["pool_mode"] = "全市场"
 
 
@@ -424,12 +490,17 @@ def reset_filters():
     st.session_state["sort_metric"] = "成交额"
     st.session_state["sort_direction"] = "从高到低"
     st.session_state["numeric_filter_enabled"] = True
+    st.session_state["mobile_industry_filter"] = []
+    st.session_state["mobile_rating_filter"] = []
+    st.session_state["mobile_query_filter"] = ""
+    st.session_state["mobile_numeric_filter_enabled"] = True
     for key in [
         "price_min", "price_max", "premium_min", "premium_max", "ytm_min", "ytm_max",
         "balance_min", "balance_max", "stock_price_min", "stock_price_max",
         "stock_change_min", "stock_change_max", "stock_change_5d_min", "stock_change_5d_max",
     ]:
         st.session_state.pop(key, None)
+        st.session_state.pop(f"mobile_{key}", None)
 
 
 def apply_screen(payload):
@@ -443,6 +514,7 @@ def apply_screen(payload):
     for key, value in payload.items():
         if key in allowed:
             st.session_state[key] = value
+            st.session_state[f"mobile_{key}"] = value
 
 
 if not cloud_workspace_enabled():
@@ -452,9 +524,16 @@ try:
     user_agent = str(st.context.headers.get("User-Agent", "")).lower()
 except Exception:
     user_agent = ""
-is_mobile = any(token in user_agent for token in ["iphone", "android", "mobile", "ipod"])
+is_mobile = (
+    any(token in user_agent for token in ["iphone", "android", "mobile", "ipod"])
+    or st.query_params.get("view") == "mobile"
+)
 latest = market.sort_values("date").iloc[-1]
 latest_supply = supply.sort_values("date").iloc[-1]
+data_date = pd.Timestamp(latest["date"])
+data_date_iso = data_date.strftime("%Y-%m-%d")
+data_date_dot = data_date.strftime("%Y.%m.%d")
+data_date_slash = data_date.strftime("%Y / %m / %d")
 year_end = supply[supply["date"] <= pd.Timestamp("2025-12-31")].sort_values("date").iloc[-1]
 ytd_balance_change = latest_supply["balance"] - year_end["balance"]
 
@@ -464,6 +543,8 @@ if "pool_mode" not in st.session_state:
     st.session_state["pool_mode"] = "全市场"
 if "numeric_filter_enabled" not in st.session_state:
     st.session_state["numeric_filter_enabled"] = True
+if "mobile_numeric_filter_enabled" not in st.session_state:
+    st.session_state["mobile_numeric_filter_enabled"] = True
 if "auth_user" not in st.session_state:
     st.session_state["auth_user"] = None
 
@@ -480,12 +561,12 @@ if is_mobile:
             unsafe_allow_html=True,
         )
     st.markdown(
-        f'<div class="mobile-actions"><a href="#{"workspace" if auth_user else "mobile-login"}">{"我的自选债" if auth_user else "账户登录"}</a><a href="#bond-download">下载筛选结果</a></div>',
+        f'<div class="mobile-actions"><a href="#{"workspace" if auth_user else "mobile-login"}">{"我的自选" if auth_user else "登录 / 注册"}</a><a href="#mobile-filter">个券筛选</a><a href="#bond-download">下载结果</a></div>',
         unsafe_allow_html=True,
     )
     if auth_user is None:
         st.markdown('<div id="mobile-login" class="section-anchor"></div>', unsafe_allow_html=True)
-        with st.expander("账户登录 · 保存研究记录", expanded=True):
+        with st.expander("邮箱登录 / 注册 · 保存研究记录", expanded=False):
             mobile_auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, key="mobile_auth_mode")
             with st.form("mobile_account_form", clear_on_submit=False):
                 st.caption("使用邮箱登录后，筛选方案和自选债将自动跨设备同步。")
@@ -500,7 +581,8 @@ if is_mobile:
                 if user:
                     st.session_state["auth_user"] = user
                     st.rerun()
-                st.error(error)
+                if error:
+                    st.error(error)
 
 with st.sidebar:
     st.markdown('<div class="brand-lockup"><b>华泰证券</b><span>HUATAI SECURITIES</span></div>', unsafe_allow_html=True)
@@ -593,7 +675,38 @@ with st.sidebar:
                 stock_price_max = st.number_input("正股价格 ≤", value=None, step=1.0, key="stock_price_max", placeholder="不限制")
                 stock_change_max = st.number_input("正股涨跌 ≤", value=None, step=1.0, key="stock_change_max", placeholder="不限制")
                 stock_change_5d_max = st.number_input("正股5日涨跌 ≤", value=None, step=1.0, key="stock_change_5d_max", placeholder="不限制")
-    st.caption("数据更新至 2026-08-07")
+    st.caption(f"数据更新至 {data_date_iso}")
+
+if is_mobile:
+    st.markdown('<div id="mobile-filter" class="section-anchor"></div>', unsafe_allow_html=True)
+    with st.expander("个券筛选 · 支持正股与数值指标", expanded=False):
+        st.button("清空筛选 · 查看全市场", on_click=reset_filters, key="mobile_reset_filters", width="stretch")
+        query = st.text_input("名称 / 转债代码 / 正股名称 / 正股代码", placeholder="输入关键词", key="mobile_query_filter")
+        selected_industries = st.multiselect("行业", industries, key="mobile_industry_filter")
+        selected_ratings = st.multiselect("评级", ratings, key="mobile_rating_filter")
+        numeric_filter_enabled = st.checkbox("启用数值区间筛选", key="mobile_numeric_filter_enabled")
+        price_min = price_max = premium_min = premium_max = ytm_min = ytm_max = balance_min = balance_max = None
+        stock_price_min = stock_price_max = stock_change_min = stock_change_max = None
+        stock_change_5d_min = stock_change_5d_max = None
+        if numeric_filter_enabled:
+            m_left, m_right = st.columns(2)
+            with m_left:
+                price_min = st.number_input("转债价格 ≥", value=None, key="mobile_price_min", placeholder="不限")
+                premium_min = st.number_input("溢价率 ≥", value=None, key="mobile_premium_min", placeholder="不限")
+                ytm_min = st.number_input("YTM ≥", value=None, key="mobile_ytm_min", placeholder="不限")
+                balance_min = st.number_input("余额 ≥", value=None, key="mobile_balance_min", placeholder="不限")
+                stock_price_min = st.number_input("正股价格 ≥", value=None, key="mobile_stock_price_min", placeholder="不限")
+                stock_change_min = st.number_input("正股涨跌 ≥", value=None, key="mobile_stock_change_min", placeholder="不限")
+                stock_change_5d_min = st.number_input("正股5日涨跌 ≥", value=None, key="mobile_stock_change_5d_min", placeholder="不限")
+            with m_right:
+                price_max = st.number_input("转债价格 ≤", value=None, key="mobile_price_max", placeholder="不限")
+                premium_max = st.number_input("溢价率 ≤", value=None, key="mobile_premium_max", placeholder="不限")
+                ytm_max = st.number_input("YTM ≤", value=None, key="mobile_ytm_max", placeholder="不限")
+                balance_max = st.number_input("余额 ≤", value=None, key="mobile_balance_max", placeholder="不限")
+                stock_price_max = st.number_input("正股价格 ≤", value=None, key="mobile_stock_price_max", placeholder="不限")
+                stock_change_max = st.number_input("正股涨跌 ≤", value=None, key="mobile_stock_change_max", placeholder="不限")
+                stock_change_5d_max = st.number_input("正股5日涨跌 ≤", value=None, key="mobile_stock_change_5d_max", placeholder="不限")
+        st.caption(f"全市场 {len(bonds)} 只 · 数据更新至 {data_date_iso}")
 
 st.markdown(
     f"""
@@ -602,13 +715,13 @@ st.markdown(
       <span>全市场成交 <b>{fmt(latest['turnover_total'])}亿</b></span><i></i>
       <span>平价溢价率 <b>{fmt(latest['premium_median'])}%</b></span><i></i>
       <span>市场余额 <b>{fmt(latest_supply['balance'])}亿</b></span><i></i>
-      <span>数据日期 <em>2026.07.31</em></span>
+      <span>数据日期 <em>{data_date_dot}</em></span>
     </div>
     <div class="hero">
       <div class="eyebrow">华泰固收 / CONVERTIBLE BOND RESEARCH</div>
       <h1>可转债数据库</h1>
       <p>市场数据、估值结构、个券筛选与供给变化</p>
-      <span class="date">2026 / 08 / 07</span>
+      <span class="date">{data_date_slash}</span>
     </div>
     <nav class="chapter-nav" aria-label="页面章节导航">
       <a href="#section-01"><b>01 / MARKET</b>市场总览</a>
@@ -680,7 +793,7 @@ st.altair_chart(line, width="stretch")
 base_filtered = bonds.copy()
 if query:
     mask = pd.Series(False, index=base_filtered.index)
-    for col in ["name", "code", "industry", "stock_code"]:
+    for col in ["name", "code", "industry", "stock_code", "stock_name"]:
         mask |= base_filtered[col].fillna("").astype(str).str.contains(query, case=False, regex=False)
     base_filtered = base_filtered[mask]
 if selected_industries:
@@ -871,19 +984,21 @@ with sort_col:
     sort_label = st.selectbox("排序指标", list(sort_options), index=0, key="sort_metric")
 with order_col:
     sort_order = st.selectbox("排序方向", ["从高到低", "从低到高"], key="sort_direction")
+
+filtered = filtered.sort_values(sort_options[sort_label], ascending=sort_order == "从低到高", na_position="last")
+download_table = bond_output_table(filtered)
+
 with download_col:
     st.markdown('<div id="bond-download" class="section-anchor"></div>', unsafe_allow_html=True)
     st.write("")
     st.write("")
     st.download_button(
         "下载当前筛选结果",
-        filtered.to_csv(index=False, encoding="utf-8-sig"),
-        file_name="可转债筛选结果.csv",
+        download_table.to_csv(index=False, encoding="utf-8-sig"),
+        file_name=f"可转债筛选结果_{data_date_iso}.csv",
         mime="text/csv",
         width="stretch",
     )
-
-filtered = filtered.sort_values(sort_options[sort_label], ascending=sort_order == "从低到高", na_position="last")
 
 auth_user = st.session_state["auth_user"]
 if auth_user:
@@ -892,6 +1007,34 @@ if auth_user:
         f'保存筛选方案、建立个券自选，并在下次登录后继续使用。</div>',
         unsafe_allow_html=True,
     )
+    if is_mobile:
+        with st.expander("我的筛选方案 · 载入 / 删除", expanded=False):
+            mobile_plans = saved_screens(auth_user)
+            if mobile_plans:
+                mobile_plan_map = {plan["name"]: plan for plan in mobile_plans}
+                mobile_plan_name = st.selectbox("已保存方案", list(mobile_plan_map), key="mobile_saved_screen")
+                mobile_load_col, mobile_delete_col = st.columns(2)
+                with mobile_load_col:
+                    st.button(
+                        "载入方案",
+                        key="mobile_load_screen",
+                        on_click=apply_screen,
+                        args=(mobile_plan_map[mobile_plan_name]["payload"],),
+                        width="stretch",
+                    )
+                with mobile_delete_col:
+                    st.button(
+                        "删除方案",
+                        key="mobile_delete_screen",
+                        on_click=delete_screen,
+                        args=(auth_user, mobile_plan_map[mobile_plan_name]["id"]),
+                        width="stretch",
+                    )
+            else:
+                st.caption("尚未保存筛选方案")
+            if st.button("退出登录", key="mobile_logout", width="stretch"):
+                st.session_state["auth_user"] = None
+                st.rerun()
     workspace_left, workspace_right = st.columns(2)
     with workspace_left:
         with st.form("save_screen_form", clear_on_submit=True):
@@ -954,9 +1097,10 @@ if auth_user:
                 st.rerun()
         st.dataframe(
             watch_table.rename(columns={
-                "name": "转债名称", "code": "转债代码", "stock_code": "正股代码", "price": "价格",
-                "stock_price": "正股价格", "premium": "转股溢价率", "ytm": "YTM", "rating": "评级",
-            })[["转债名称", "转债代码", "正股代码", "价格", "正股价格", "转股溢价率", "YTM", "评级"]],
+                "name": "转债名称", "code": "转债代码", "stock_name": "正股名称", "stock_code": "正股代码",
+                "price": "价格", "stock_price": "正股价格", "stock_change": "正股涨跌",
+                "premium": "转股溢价率", "ytm": "YTM", "rating": "评级",
+            })[["转债名称", "转债代码", "正股名称", "正股代码", "价格", "正股价格", "正股涨跌", "转股溢价率", "YTM", "评级"]],
             width="stretch", hide_index=True, height=min(360, 38 + len(watch_table) * 35),
         )
     else:
@@ -974,41 +1118,44 @@ for col, (label, value, unit) in zip(summary_cols, summary_values):
     with col:
         metric_card(label, fmt(value, 0 if label == "筛选结果" else 2), unit)
 
-table = filtered.rename(
-    columns={
-        "name": "转债名称", "code": "转债代码", "stock_code": "正股代码", "industry": "行业", "price": "价格",
-        "stock_price": "正股价格", "stock_change_5d": "正股5日涨跌", "change_5d": "转债5日涨跌",
-        "change": "转债涨跌", "stock_change": "正股涨跌", "turnover": "成交额(百万元)",
-        "parity": "平价", "premium": "转股溢价率", "ytm": "YTM", "floor_premium": "纯债溢价率",
-        "remaining": "剩余期限", "balance": "剩余余额(亿元)", "rating": "评级", "list_date": "上市日期",
-    }
-)[[
-    "转债名称", "转债代码", "正股代码", "行业", "价格", "正股价格", "转债涨跌", "正股涨跌",
-    "转债5日涨跌", "正股5日涨跌", "成交额(百万元)",
-    "平价", "转股溢价率", "YTM", "纯债溢价率", "剩余期限", "剩余余额(亿元)", "评级", "上市日期",
-]]
-st.dataframe(
-    table,
-    width="stretch",
-    height=650,
-    hide_index=True,
-    column_config={
-        "价格": st.column_config.NumberColumn(format="%.3f"),
-        "正股价格": st.column_config.NumberColumn(format="%.3f"),
-        "转债涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
-        "正股涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
-        "转债5日涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
-        "正股5日涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
-        "成交额(百万元)": st.column_config.NumberColumn(format="%.2f"),
-        "平价": st.column_config.NumberColumn(format="%.2f"),
-        "转股溢价率": st.column_config.NumberColumn(format="%.2f%%"),
-        "YTM": st.column_config.NumberColumn(format="%.2f%%"),
-        "纯债溢价率": st.column_config.NumberColumn(format="%.2f%%"),
-        "剩余期限": st.column_config.NumberColumn(format="%.2f年"),
-        "剩余余额(亿元)": st.column_config.NumberColumn(format="%.2f"),
-    },
-)
-st.caption("表格可再次点击任意数值列标题排序；当前显示全部筛选结果。")
+table = bond_output_table(filtered)
+if is_mobile:
+    page_size = 15
+    page_count = max(1, math.ceil(len(filtered) / page_size))
+    if st.session_state.get("mobile_result_page", 1) > page_count:
+        st.session_state["mobile_result_page"] = 1
+    mobile_page = st.selectbox(
+        "个券明细页码",
+        list(range(1, page_count + 1)),
+        format_func=lambda page: f"第 {page} / {page_count} 页",
+        key="mobile_result_page",
+    )
+    page_start = (mobile_page - 1) * page_size
+    st.markdown(mobile_bond_cards(filtered.iloc[page_start : page_start + page_size]), unsafe_allow_html=True)
+    st.caption(f"每页 {page_size} 只；当前显示第 {mobile_page} 页，完整结果可在上方下载。")
+else:
+    st.dataframe(
+        table,
+        width="stretch",
+        height=650,
+        hide_index=True,
+        column_config={
+            "价格": st.column_config.NumberColumn(format="%.3f"),
+            "正股价格": st.column_config.NumberColumn(format="%.3f"),
+            "转债涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
+            "正股涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
+            "转债5日涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
+            "正股5日涨跌": st.column_config.NumberColumn(format="%+.2f%%"),
+            "成交额(百万元)": st.column_config.NumberColumn(format="%.2f"),
+            "平价": st.column_config.NumberColumn(format="%.2f"),
+            "转股溢价率": st.column_config.NumberColumn(format="%.2f%%"),
+            "YTM": st.column_config.NumberColumn(format="%.2f%%"),
+            "纯债溢价率": st.column_config.NumberColumn(format="%.2f%%"),
+            "剩余期限": st.column_config.NumberColumn(format="%.2f年"),
+            "剩余余额(亿元)": st.column_config.NumberColumn(format="%.2f"),
+        },
+    )
+    st.caption("表格可再次点击任意数值列标题排序；当前显示全部筛选结果。")
 
 section_head("05 / MARKET STRUCTURE", "全市场行业分布", "点击行业卡片可回到机会池筛选")
 industry_counts = bonds["industry"].fillna("未分类").value_counts().rename_axis("行业").reset_index(name="只数")
@@ -1080,4 +1227,4 @@ with supply_cols[3]:
     st.altair_chart(supply_chart, width="stretch")
 
 st.markdown("---")
-st.markdown("**华泰固收 · 可转债数据库**　　<span class='num'>DATA AS OF 2026.07.31</span>", unsafe_allow_html=True)
+st.markdown(f"**华泰固收 · 可转债数据库**　　<span class='num'>DATA AS OF {data_date_dot}</span>", unsafe_allow_html=True)

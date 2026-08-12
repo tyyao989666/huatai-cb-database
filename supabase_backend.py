@@ -50,9 +50,12 @@ def sign_up(email: str, password: str) -> tuple[dict[str, Any] | None, str | Non
         return None, "请输入有效的邮箱地址。"
     if len(password) < 8:
         return None, "密码至少需要 8 个字符。"
-    response = requests.post(
-        f"{_base()}/auth/v1/signup", headers=_headers(), json={"email": email.strip(), "password": password}, timeout=15
-    )
+    try:
+        response = requests.post(
+            f"{_base()}/auth/v1/signup", headers=_headers(), json={"email": email.strip(), "password": password}, timeout=15
+        )
+    except requests.RequestException:
+        return None, "暂时无法连接账户服务，请稍后重试。若持续出现，请检查 Streamlit Cloud 的 SUPABASE_URL 与 SUPABASE_ANON_KEY。"
     if not response.ok:
         return None, _error(response)
     data = response.json()
@@ -66,9 +69,12 @@ def sign_up(email: str, password: str) -> tuple[dict[str, Any] | None, str | Non
 def sign_in(email: str, password: str) -> tuple[dict[str, Any] | None, str | None]:
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email.strip()):
         return None, "请输入有效的邮箱地址。"
-    response = requests.post(
-        f"{_base()}/auth/v1/token?grant_type=password", headers=_headers(), json={"email": email.strip(), "password": password}, timeout=15
-    )
+    try:
+        response = requests.post(
+            f"{_base()}/auth/v1/token?grant_type=password", headers=_headers(), json={"email": email.strip(), "password": password}, timeout=15
+        )
+    except requests.RequestException:
+        return None, "暂时无法连接账户服务，请稍后重试。若持续出现，请检查 Streamlit Cloud 的 SUPABASE_URL 与 SUPABASE_ANON_KEY。"
     if not response.ok:
         return None, _error(response)
     data = response.json()
@@ -81,37 +87,55 @@ def _rest(method: str, table: str, auth_user: dict[str, Any], *, params: dict[st
 
 
 def list_screens(auth_user: dict[str, Any]) -> list[dict[str, Any]]:
-    response = _rest("GET", "saved_screens", auth_user, params={"select": "id,name,payload,updated_at", "order": "updated_at.desc"})
-    response.raise_for_status()
-    return response.json()
+    try:
+        response = _rest("GET", "saved_screens", auth_user, params={"select": "id,name,payload,updated_at", "order": "updated_at.desc"})
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException:
+        return []
 
 
 def upsert_screen(auth_user: dict[str, Any], name: str, payload: dict[str, Any]) -> bool:
-    response = _rest("POST", "saved_screens", auth_user, data={"user_id": auth_user["id"], "name": name, "payload": payload}, prefer="resolution=merge-duplicates,return=representation")
-    response.raise_for_status()
-    return True
+    try:
+        response = _rest("POST", "saved_screens", auth_user, data={"user_id": auth_user["id"], "name": name, "payload": payload}, prefer="resolution=merge-duplicates,return=representation")
+        response.raise_for_status()
+        return True
+    except requests.RequestException:
+        return False
 
 
 def remove_screen(auth_user: dict[str, Any], screen_id: str) -> None:
-    response = _rest("DELETE", "saved_screens", auth_user, params={"id": f"eq.{screen_id}"})
-    response.raise_for_status()
+    try:
+        response = _rest("DELETE", "saved_screens", auth_user, params={"id": f"eq.{screen_id}"})
+        response.raise_for_status()
+    except requests.RequestException:
+        return
 
 
 def list_watchlist(auth_user: dict[str, Any]) -> list[str]:
-    response = _rest("GET", "watchlist", auth_user, params={"select": "bond_code", "order": "added_at.desc"})
-    response.raise_for_status()
-    return [item["bond_code"] for item in response.json()]
+    try:
+        response = _rest("GET", "watchlist", auth_user, params={"select": "bond_code", "order": "added_at.desc"})
+        response.raise_for_status()
+        return [item["bond_code"] for item in response.json()]
+    except requests.RequestException:
+        return []
 
 
 def add_to_watchlist(auth_user: dict[str, Any], codes: list[str]) -> None:
     if not codes:
         return
     rows = [{"user_id": auth_user["id"], "bond_code": code} for code in codes]
-    response = _rest("POST", "watchlist", auth_user, data=rows, prefer="resolution=ignore-duplicates")
-    response.raise_for_status()
+    try:
+        response = _rest("POST", "watchlist", auth_user, data=rows, prefer="resolution=ignore-duplicates")
+        response.raise_for_status()
+    except requests.RequestException:
+        return
 
 
 def remove_from_watchlist(auth_user: dict[str, Any], codes: list[str]) -> None:
     for code in codes:
-        response = _rest("DELETE", "watchlist", auth_user, params={"bond_code": f"eq.{code}"})
-        response.raise_for_status()
+        try:
+            response = _rest("DELETE", "watchlist", auth_user, params={"bond_code": f"eq.{code}"})
+            response.raise_for_status()
+        except requests.RequestException:
+            return
