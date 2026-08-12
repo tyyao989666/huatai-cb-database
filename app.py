@@ -384,6 +384,19 @@ st.markdown(
       [role="radiogroup"] { display:flex !important; flex-wrap:wrap !important; gap:5px 8px !important; }
       .stDownloadButton button, div.stButton > button { min-height:42px; width:100%; }
       .industry-grid [data-testid="stButton"] button { min-height:58px; padding:8px 10px; font-size:12px; }
+      .mobile-bond-list { grid-template-columns:repeat(2, minmax(0, 1fr)); gap:7px; }
+      .mobile-bond-card { min-width:0; padding:10px 9px 9px; border-left-width:2px; }
+      .mobile-bond-head { gap:4px; padding-bottom:7px; }
+      .mobile-bond-head b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+      .mobile-bond-head small { font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .mobile-bond-head em { font-size:9px; }
+      .mobile-bond-pair { grid-template-columns:1fr; gap:4px; padding:7px 0 6px; }
+      .mobile-bond-pair > div { padding:6px 7px; }
+      .mobile-bond-pair span { font-size:9px; }
+      .mobile-bond-pair strong { font-size:15px; }
+      .mobile-bond-pair i { display:block; margin:2px 0 0; font-size:10px; }
+      .mobile-bond-meta { display:grid; grid-template-columns:1fr 1fr; gap:3px 6px; font-size:9px; }
+      .mobile-bond-meta b { font-size:10px; }
       div[data-testid="stDataFrame"] { overflow-x:auto; box-shadow:none; }
       [data-testid="stVegaLiteChart"] { overflow:hidden; overscroll-behavior-x:contain; }
       [data-testid="stVegaLiteChart"] canvas, [data-testid="stVegaLiteChart"] svg { touch-action:pan-y pinch-zoom; }
@@ -394,6 +407,11 @@ st.markdown(
       .hero h1 { font-size:30px; }
       .metric-card b { font-size:21px; }
       .section-head h2 { font-size:21px; }
+    }
+    @media (max-width:360px) {
+      .mobile-bond-list { grid-template-columns:1fr; }
+      .mobile-bond-pair { grid-template-columns:1fr 1fr; }
+      .mobile-bond-pair i { display:inline; margin-left:4px; }
     }
     </style>
     """,
