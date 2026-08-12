@@ -272,6 +272,8 @@ st.markdown(
     .workspace-strip b { color:#102B56; }
     .workspace-jump { display:block; margin:0 0 13px; padding:11px 12px; border-left:3px solid #E99A2F; background:rgba(233,154,47,.13); color:#FFF2D9 !important; font-size:13px; font-weight:700; text-decoration:none; }
     .workspace-jump:hover { background:rgba(233,154,47,.25); color:#FFFFFF !important; }
+    .mobile-account { display:none; }
+    .mobile-actions { display:none; }
     .brand-lockup { padding:8px 0 20px; border-bottom:1px solid rgba(255,255,255,.17); margin-bottom:18px; }
     .brand-lockup b { font-size:25px; letter-spacing:.08em; }
     .brand-lockup span { display:block; margin-top:6px; font-family:Arial,sans-serif; font-size:10px; letter-spacing:.22em; opacity:.6; }
@@ -327,6 +329,13 @@ st.markdown(
       .hero p { max-width:84%; font-size:13px; line-height:1.65; }
       .hero .date { position:static; display:block; margin-top:17px; font-size:14px; }
       .top-ticker { gap:12px; margin:0 -0.8rem; padding:10px 14px; border-left:0; font-size:12px; }
+      [data-testid="stSidebar"] { min-width:86vw !important; max-width:86vw !important; }
+      .mobile-account { display:block; margin:0 0 12px; padding:12px 14px; background:#102B56; border-left:4px solid #E99A2F; box-shadow:0 10px 24px rgba(16,43,86,.15); }
+      .mobile-account b { display:block; color:#FFFFFF; font-size:14px; }
+      .mobile-account span { display:block; margin-top:3px; color:#C9D9F1; font-size:11px; }
+      .mobile-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 15px; }
+      .mobile-actions a { display:block; padding:10px 9px; color:#102B56 !important; background:#FFFFFF; border:1px solid #C8D8EA; border-radius:3px; text-align:center; text-decoration:none; font-size:12px; font-weight:700; }
+      .mobile-actions a:last-child { background:#1F5AA6; color:#FFFFFF !important; border-color:#1F5AA6; }
       .top-ticker span { font-size:11px; } .top-ticker b { font-size:12px; }
       .chapter-nav { top:2.9rem; margin:0 -0.2rem 13px; box-shadow:0 7px 18px rgba(24,61,110,.08); scrollbar-width:none; }
       .chapter-nav::-webkit-scrollbar { display:none; }
@@ -454,11 +463,46 @@ if "numeric_filter_enabled" not in st.session_state:
 if "auth_user" not in st.session_state:
     st.session_state["auth_user"] = None
 
+auth_user = st.session_state["auth_user"]
+if is_mobile:
+    if auth_user:
+        st.markdown(
+            f'<div class="mobile-account"><b>研究工作台 · {auth_user["username"]}</b><span>已登录 · 可保存方案与同步自选债</span></div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            '<div class="mobile-account"><b>个人研究工作台</b><span>登录后可保存筛选方案与自选债</span></div>',
+            unsafe_allow_html=True,
+        )
+    st.markdown(
+        f'<div class="mobile-actions"><a href="#{"workspace" if auth_user else "mobile-login"}">{"我的自选债" if auth_user else "账户登录"}</a><a href="#bond-download">下载筛选结果</a></div>',
+        unsafe_allow_html=True,
+    )
+    if auth_user is None:
+        st.markdown('<div id="mobile-login" class="section-anchor"></div>', unsafe_allow_html=True)
+        with st.expander("账户登录 · 保存研究记录", expanded=True):
+            mobile_auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, key="mobile_auth_mode")
+            with st.form("mobile_account_form", clear_on_submit=False):
+                st.caption("使用邮箱登录后，筛选方案和自选债将自动跨设备同步。")
+                mobile_email = st.text_input("邮箱地址", placeholder="name@example.com", key="mobile_auth_email")
+                mobile_password = st.text_input("密码", type="password", placeholder="至少 8 个字符", key="mobile_auth_password")
+                mobile_submit = st.form_submit_button(mobile_auth_mode, width="stretch")
+            if mobile_submit:
+                if mobile_auth_mode == "注册":
+                    user, error = register_user(mobile_email, mobile_password)
+                else:
+                    user, error = authenticate_user(mobile_email, mobile_password)
+                if user:
+                    st.session_state["auth_user"] = user
+                    st.rerun()
+                st.error(error)
+
 with st.sidebar:
     st.markdown('<div class="brand-lockup"><b>华泰证券</b><span>HUATAI SECURITIES</span></div>', unsafe_allow_html=True)
     auth_user = st.session_state["auth_user"]
     if auth_user is None:
-        with st.expander("账户登录 · 保存研究记录", expanded=False):
+        with st.expander("账户登录 · 保存研究记录", expanded=is_mobile):
             auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, label_visibility="collapsed")
             with st.form("account_form", clear_on_submit=False):
                 if cloud_workspace_enabled():
@@ -545,7 +589,7 @@ with st.sidebar:
                 stock_price_max = st.number_input("正股价格 ≤", value=None, step=1.0, key="stock_price_max", placeholder="不限制")
                 stock_change_max = st.number_input("正股涨跌 ≤", value=None, step=1.0, key="stock_change_max", placeholder="不限制")
                 stock_change_5d_max = st.number_input("正股5日涨跌 ≤", value=None, step=1.0, key="stock_change_5d_max", placeholder="不限制")
-    st.caption("数据更新至 2026-07-31")
+    st.caption("数据更新至 2026-08-07")
 
 st.markdown(
     f"""
@@ -560,7 +604,7 @@ st.markdown(
       <div class="eyebrow">华泰固收 / CONVERTIBLE BOND RESEARCH</div>
       <h1>可转债数据库</h1>
       <p>市场数据、估值结构、个券筛选与供给变化</p>
-      <span class="date">2026 / 07 / 31</span>
+      <span class="date">2026 / 08 / 07</span>
     </div>
     <nav class="chapter-nav" aria-label="页面章节导航">
       <a href="#section-01"><b>01 / MARKET</b>市场总览</a>
@@ -780,8 +824,8 @@ section_head("03 / WEEKLY VIEW", "本周观点")
 st.markdown(
     """
     <div class="weekly">
-      <h3>转债建议：仓位无需调整，重视结构分化</h3>
-      <p>上周我们建议不再降低仓位，市场如期修复，符合预期。但略超预期的是，转债结构分化进一步加剧。逻辑层面虽能部分解释这一现象，但从定量视角看估值分化已过于极致。我们认为双高品种的风险正在持续积聚，短期强势表现的背后是估值的进一步抬升，定价已趋于非理性。低价品种的短期滞涨或与ETF小幅流出有关，反而提供了较好的介入窗口。我们建议投资者短期无需过度调整转债仓位，核心是规避结构风险、向性价比更优的方向倾斜。低溢价银行、红利品种均是当前较好的参与标的，短期配置价值或优于纯债。此外，下半年仍需规避条款风险。</p>
+      <h3>策略方面，两周期建议不再减持，目前保持中性仓位，结构上优先低价权重品种，弹性品种关注次新或低溢价科技品种。</h3>
+      <p>上周转债延续上行，但由于行业分布及挤压溢价率等原因，整体跑输正股，双高品种弹性更强，低价券表现相对稳健。近期转债指数波动率明显下降，持有体验优于正股。背后核心原因在于刚性配置转债的需求仍然较强，仍有不少资金只能通过转债参与科技，双高品种承接力量尚在。短期来看，股市向下有支撑、中期供求格局偏紧，双高品种的高估值状态可能仍将维持一段时间，参与难度依然较大。但好在低价品种估值仍处相对偏低区间，我们认为其配置价值优于纯债，更适合当下参与。综上，我们建议保持偏中性仓位，重在结构优化。重点关注低价权重品种，尤其是低溢价银行转债。弹性品种优先选择刚上市次新或类股的品种（强赎品种要及时转股），以规避估值风险。向后看，双高品种可能仍有超预期条款事件扰动，建议提前规避。</p>
     </div>
     """,
     unsafe_allow_html=True,
@@ -824,6 +868,7 @@ with sort_col:
 with order_col:
     sort_order = st.selectbox("排序方向", ["从高到低", "从低到高"], key="sort_direction")
 with download_col:
+    st.markdown('<div id="bond-download" class="section-anchor"></div>', unsafe_allow_html=True)
     st.write("")
     st.write("")
     st.download_button(
