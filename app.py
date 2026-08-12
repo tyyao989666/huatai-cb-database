@@ -275,6 +275,7 @@ st.markdown(
     .workspace-jump:hover { background:rgba(233,154,47,.25); color:#FFFFFF !important; }
     .mobile-account { display:none; }
     .mobile-actions { display:none; }
+    .mobile-tool-label { display:none; }
     .mobile-bond-list { display:grid; gap:9px; margin-top:10px; }
     .mobile-bond-card { padding:13px 14px 12px; background:#FFFFFF; border:1px solid #D5E0EE; border-left:3px solid #1F5AA6; box-shadow:0 7px 18px rgba(24,61,110,.06); }
     .mobile-bond-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding-bottom:9px; border-bottom:1px solid #E5EBF3; }
@@ -353,9 +354,15 @@ st.markdown(
       .mobile-account { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 7px; padding:9px 11px; background:#102B56; border-left:3px solid #E99A2F; box-shadow:0 7px 18px rgba(16,43,86,.12); }
       .mobile-account b { display:block; color:#FFFFFF; font-size:12px; }
       .mobile-account span { display:block; margin-top:2px; color:#C9D9F1; font-size:10px; }
-      .mobile-actions { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin:0 0 8px; }
-      .mobile-actions a { display:block; padding:8px 5px; color:#102B56 !important; background:#FFFFFF; border:1px solid #C8D8EA; border-radius:3px; text-align:center; text-decoration:none; font-size:11px; font-weight:700; }
-      .mobile-actions a:last-child { background:#1F5AA6; color:#FFFFFF !important; border-color:#1F5AA6; }
+      .mobile-tool-label { display:flex; justify-content:space-between; align-items:baseline; margin:10px 0 6px; padding:0 2px; color:#7085A3; }
+      .mobile-tool-label span { color:#E28519; font:700 9px Arial,sans-serif; letter-spacing:.16em; }
+      .mobile-tool-label b { color:#102B56; font-size:13px; }
+      .mobile-actions { display:grid; grid-template-columns:1fr 1fr; gap:7px; margin:0 0 10px; }
+      .mobile-actions a { display:flex; align-items:center; justify-content:center; min-height:48px; padding:8px 7px; color:#102B56 !important; background:#FFFFFF; border:1px solid #B9CDE5; border-radius:4px; text-align:center; text-decoration:none; font-size:13px; font-weight:700; box-shadow:0 5px 12px rgba(16,43,86,.09); }
+      .mobile-actions a:first-child { background:#E99A2F; color:#102B56 !important; border-color:#E99A2F; }
+      .mobile-actions a:nth-child(2) { background:#102B56; color:#FFFFFF !important; border-color:#102B56; }
+      .mobile-actions a:last-child { grid-column:1 / -1; min-height:38px; background:#FFFFFF; color:#1F5AA6 !important; border-color:#C8D8EA; box-shadow:none; font-size:12px; }
+      .mobile-actions a:hover { transform:translateY(-1px); }
       [data-testid="stMain"] details { background:#FFFFFF; border:1px solid #C8D8EA; border-radius:3px; margin-bottom:8px; box-shadow:none; }
       [data-testid="stMain"] details summary { color:#102B56; font-size:12px; font-weight:700; }
       [data-testid="stMain"] details input { background:#FFFFFF !important; color:#10233F !important; caret-color:#10233F !important; }
@@ -573,6 +580,10 @@ if "auth_user" not in st.session_state:
 
 auth_user = st.session_state["auth_user"]
 if is_mobile:
+    st.markdown(
+        '<div class="mobile-tool-label"><span>RESEARCH DESK</span><b>常用入口</b></div>',
+        unsafe_allow_html=True,
+    )
     if auth_user:
         st.markdown(
             f'<div class="mobile-account"><b>研究工作台 · {auth_user["username"]}</b><span>已登录 · 可保存方案与同步自选债</span></div>',
