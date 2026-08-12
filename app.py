@@ -329,7 +329,11 @@ st.markdown(
       .hero p { max-width:84%; font-size:13px; line-height:1.65; }
       .hero .date { position:static; display:block; margin-top:17px; font-size:14px; }
       .top-ticker { gap:12px; margin:0 -0.8rem; padding:10px 14px; border-left:0; font-size:12px; }
-      [data-testid="stSidebar"] { min-width:86vw !important; max-width:86vw !important; }
+      /* Mobile keeps the research interface full width. Account and download
+         controls live in the main canvas; the desktop sidebar is not needed. */
+      [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display:none !important; }
+      [data-testid="stAppViewContainer"] > .main { margin-left:0 !important; width:100% !important; }
+      [data-testid="collapsedControl"] { display:none !important; }
       .mobile-account { display:block; margin:0 0 12px; padding:12px 14px; background:#102B56; border-left:4px solid #E99A2F; box-shadow:0 10px 24px rgba(16,43,86,.15); }
       .mobile-account b { display:block; color:#FFFFFF; font-size:14px; }
       .mobile-account span { display:block; margin-top:3px; color:#C9D9F1; font-size:11px; }
