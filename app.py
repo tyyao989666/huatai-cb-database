@@ -549,7 +549,7 @@ def apply_screen(payload):
 
 if not cloud_workspace_enabled():
     init_user_db()
-bonds, market, supply = load_data("2026-08-07-stock-schema-v2")
+bonds, market, supply = load_data("2026-08-14-stock-schema-v3")
 try:
     user_agent = str(st.context.headers.get("User-Agent", "")).lower()
 except Exception:
@@ -561,9 +561,10 @@ is_mobile = (
 latest = market.sort_values("date").iloc[-1]
 latest_supply = supply.sort_values("date").iloc[-1]
 data_date = pd.Timestamp(latest["date"])
-data_date_iso = data_date.strftime("%Y-%m-%d")
-data_date_dot = data_date.strftime("%Y.%m.%d")
-data_date_slash = data_date.strftime("%Y / %m / %d")
+report_date = pd.Timestamp("2026-08-17")
+data_date_iso = report_date.strftime("%Y-%m-%d")
+data_date_dot = report_date.strftime("%Y.%m.%d")
+data_date_slash = report_date.strftime("%Y / %m / %d")
 year_end = supply[supply["date"] <= pd.Timestamp("2025-12-31")].sort_values("date").iloc[-1]
 ytd_balance_change = latest_supply["balance"] - year_end["balance"]
 
@@ -975,8 +976,8 @@ section_head("03 / WEEKLY VIEW", "本周观点")
 st.markdown(
     """
     <div class="weekly">
-      <h3>策略方面，两周期建议不再减持，目前保持中性仓位，结构上优先低价权重品种，弹性品种关注次新或低溢价科技品种。</h3>
-      <p>上周转债延续上行，但由于行业分布及挤压溢价率等原因，整体跑输正股，双高品种弹性更强，低价券表现相对稳健。近期转债指数波动率明显下降，持有体验优于正股。背后核心原因在于刚性配置转债的需求仍然较强，仍有不少资金只能通过转债参与科技，双高品种承接力量尚在。短期来看，股市向下有支撑、中期供求格局偏紧，双高品种的高估值状态可能仍将维持一段时间，参与难度依然较大。但好在低价品种估值仍处相对偏低区间，我们认为其配置价值优于纯债，更适合当下参与。综上，我们建议保持偏中性仓位，重在结构优化。重点关注低价权重品种，尤其是低溢价银行转债。弹性品种优先选择刚上市次新或类股的品种（强赎品种要及时转股），以规避估值风险。向后看，双高品种可能仍有超预期条款事件扰动，建议提前规避。</p>
+      <h3>策略方面，上周转债明显回撤更多是对高估值的修正，股指关键点位部分资金加大博弈力度，但继续大跌的风险有限。我们建议保持偏中性仓位，重点关注性价比更优的低价权重品种。</h3>
+      <p>上周转债大幅调整，转债估值也被明显压缩。关键点位附近，以当前的量能难以顺利突破，部分资金选择撤出。但周五ETF仍有小幅流入、新券仍顶格开盘，转债市场需求和流动性短期不弱。我们认为近日调整更多是对前期双高品种溢价率再度走高的修正，叠加短期供给阶段性扰动，后续大幅回撤的风险相对有限。另外，本波下跌低价品种未能幸免，回吐了部分前期修复涨幅。回撤之后，当前低价权重品种普遍不贵，股性银行转债溢价率在10%以内，生猪、光伏品种价格也处于相对低位。综合来看，未来一年供求仍偏紧、股市慢牛预期仍在，转债短期风险有限。建议继续维持中性仓位，交易低价修复机会，低价品种短期配置价值优于纯债。股性品种优先关注次新或溢价率接近零的标的，规避估值风险。后续双高品种的条款风险仍不小，强赎预期不够明确的情况下建议尽早规避。</p>
     </div>
     """,
     unsafe_allow_html=True,
