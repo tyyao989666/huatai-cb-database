@@ -1,16 +1,11 @@
 from pathlib import Path
-from datetime import datetime, timezone
 import html
-import hashlib
 import json
 import math
-import secrets
-import sqlite3
 
 import altair as alt
 import pandas as pd
 import streamlit as st
-import supabase_backend as supabase
 from research_panels import research_snapshot, valuation_dashboard, issuance_dashboard, weekly_report
 
 
@@ -28,7 +23,6 @@ SKY = "#7EA3D4"
 ORANGE = "#E99A2F"
 RED = "#C94B55"
 PAPER = "#F4F7FB"
-USER_DB = BASE / "data" / "user_workspace.db"
 
 # The orange curve is the independent lower-right value boundary.  It is not
 # derived from, or enclosed by, the three black valuation structure lines.
@@ -46,183 +40,6 @@ def value_curve_limit(values: pd.Series) -> pd.Series:
         limits.loc[segment] = y0 + (values.loc[segment] - x0) * (y1 - y0) / (x1 - x0)
     return limits
 
-
-def init_user_db():
-    """Create the lightweight account workspace used by the Streamlit app."""
-    with sqlite3.connect(USER_DB) as conn:
-        conn.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT NOT NULL UNIQUE COLLATE NOCASE,
-                password_hash TEXT NOT NULL,
-                salt TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS saved_screens (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                payload TEXT NOT NULL,
-                updated_at TEXT NOT NULL,
-                UNIQUE(user_id, name),
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            );
-            CREATE TABLE IF NOT EXISTS watchlist (
-                user_id INTEGER NOT NULL,
-                bond_code TEXT NOT NULL,
-                added_at TEXT NOT NULL,
-                PRIMARY KEY(user_id, bond_code),
-                FOREIGN KEY(user_id) REFERENCES users(id)
-            );
-            """
-        )
-
-
-def password_digest(password, salt_hex):
-    return hashlib.pbkdf2_hmac(
-        "sha256", password.encode("utf-8"), bytes.fromhex(salt_hex), 240_000
-    ).hex()
-
-
-def local_register_user(username, password):
-    username = username.strip()
-    if len(username) < 3:
-        return None, "用户名至少需要3个字符"
-    if not all(char.isalnum() or char in "_-" for char in username):
-        return None, "用户名仅支持中文、字母、数字、下划线和短横线"
-    if len(password) < 8:
-        return None, "密码至少需要8个字符"
-    salt = secrets.token_hex(16)
-    created_at = datetime.now(timezone.utc).isoformat()
-    try:
-        with sqlite3.connect(USER_DB) as conn:
-            cursor = conn.execute(
-                "INSERT INTO users(username, password_hash, salt, created_at) VALUES (?, ?, ?, ?)",
-                (username, password_digest(password, salt), salt, created_at),
-            )
-            return {"id": cursor.lastrowid, "username": username}, None
-    except sqlite3.IntegrityError:
-        return None, "用户名已存在"
-
-
-def local_authenticate_user(username, password):
-    with sqlite3.connect(USER_DB) as conn:
-        row = conn.execute(
-            "SELECT id, username, password_hash, salt FROM users WHERE username = ? COLLATE NOCASE",
-            (username.strip(),),
-        ).fetchone()
-    if row and secrets.compare_digest(row[2], password_digest(password, row[3])):
-        return {"id": row[0], "username": row[1]}
-    return None
-
-
-def local_saved_screens(user_id):
-    with sqlite3.connect(USER_DB) as conn:
-        rows = conn.execute(
-            "SELECT id, name, payload, updated_at FROM saved_screens WHERE user_id = ? ORDER BY updated_at DESC",
-            (user_id,),
-        ).fetchall()
-    return [{"id": row[0], "name": row[1], "payload": json.loads(row[2]), "updated_at": row[3]} for row in rows]
-
-
-def local_save_screen(user_id, name, payload):
-    name = name.strip()
-    if not name:
-        return False
-    with sqlite3.connect(USER_DB) as conn:
-        conn.execute(
-            """INSERT INTO saved_screens(user_id, name, payload, updated_at) VALUES (?, ?, ?, ?)
-               ON CONFLICT(user_id, name) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at""",
-            (user_id, name, json.dumps(payload, ensure_ascii=False), datetime.now(timezone.utc).isoformat()),
-        )
-    return True
-
-
-def local_delete_screen(user_id, screen_id):
-    with sqlite3.connect(USER_DB) as conn:
-        conn.execute("DELETE FROM saved_screens WHERE user_id = ? AND id = ?", (user_id, screen_id))
-
-
-def local_add_watchlist(user_id, codes):
-    timestamp = datetime.now(timezone.utc).isoformat()
-    with sqlite3.connect(USER_DB) as conn:
-        conn.executemany(
-            "INSERT OR IGNORE INTO watchlist(user_id, bond_code, added_at) VALUES (?, ?, ?)",
-            [(user_id, code, timestamp) for code in codes],
-        )
-
-
-def local_remove_watchlist(user_id, codes):
-    with sqlite3.connect(USER_DB) as conn:
-        conn.executemany(
-            "DELETE FROM watchlist WHERE user_id = ? AND bond_code = ?",
-            [(user_id, code) for code in codes],
-        )
-
-
-def local_watchlist_codes(user_id):
-    with sqlite3.connect(USER_DB) as conn:
-        rows = conn.execute(
-            "SELECT bond_code FROM watchlist WHERE user_id = ? ORDER BY added_at DESC", (user_id,)
-        ).fetchall()
-    return [row[0] for row in rows]
-
-
-def cloud_workspace_enabled():
-    return supabase.configured()
-
-
-def register_user(identifier, password):
-    if cloud_workspace_enabled():
-        return supabase.sign_up(identifier, password)
-    return local_register_user(identifier, password)
-
-
-def authenticate_user(identifier, password):
-    if cloud_workspace_enabled():
-        return supabase.sign_in(identifier, password)
-    user = local_authenticate_user(identifier, password)
-    return user, None if user else "用户名或密码不正确"
-
-
-def saved_screens(auth_user):
-    if cloud_workspace_enabled():
-        return supabase.list_screens(auth_user)
-    return local_saved_screens(auth_user["id"])
-
-
-def save_screen(auth_user, name, payload):
-    name = name.strip()
-    if not name:
-        return False
-    if cloud_workspace_enabled():
-        return supabase.upsert_screen(auth_user, name, payload)
-    return local_save_screen(auth_user["id"], name, payload)
-
-
-def delete_screen(auth_user, screen_id):
-    if cloud_workspace_enabled():
-        return supabase.remove_screen(auth_user, screen_id)
-    return local_delete_screen(auth_user["id"], screen_id)
-
-
-def add_watchlist(auth_user, codes):
-    if cloud_workspace_enabled():
-        return supabase.add_to_watchlist(auth_user, codes)
-    return local_add_watchlist(auth_user["id"], codes)
-
-
-def remove_watchlist(auth_user, codes):
-    if cloud_workspace_enabled():
-        return supabase.remove_from_watchlist(auth_user, codes)
-    return local_remove_watchlist(auth_user["id"], codes)
-
-
-def watchlist_codes(auth_user):
-    if cloud_workspace_enabled():
-        return supabase.list_watchlist(auth_user)
-    return local_watchlist_codes(auth_user["id"])
 
 st.markdown(
     """
@@ -267,14 +84,6 @@ st.markdown(
     [data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button { background:#E99A2F !important; border-color:#E99A2F !important; color:#102B56 !important; font-weight:700; }
     [data-testid="stSidebar"] [data-testid="stFormSubmitButton"] button:hover { background:#FFD18B !important; border-color:#FFD18B !important; color:#102B56 !important; }
     .block-container { max-width:1540px; padding-top:1.1rem; padding-bottom:4rem; }
-    .account-card { margin:0 0 14px; padding:13px 14px; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.07); }
-    .account-card small { display:block; opacity:.62; font:10px Arial,sans-serif; letter-spacing:.12em; }
-    .account-card b { display:block; margin-top:5px; font-size:16px; }
-    .workspace-strip { margin:12px 0 16px; padding:14px 16px; background:#E8EEF7; border:1px solid #D2DEED; color:#4C6485; }
-    .workspace-strip b { color:#102B56; }
-    .workspace-jump { display:block; margin:0 0 13px; padding:11px 12px; border-left:3px solid #E99A2F; background:rgba(233,154,47,.13); color:#FFF2D9 !important; font-size:13px; font-weight:700; text-decoration:none; }
-    .workspace-jump:hover { background:rgba(233,154,47,.25); color:#FFFFFF !important; }
-    .mobile-account { display:none; }
     .mobile-actions { display:none; }
     .mobile-tool-label { display:none; }
     .mobile-bond-list { display:grid; gap:9px; margin-top:10px; }
@@ -347,14 +156,11 @@ st.markdown(
       .hero p { max-width:84%; font-size:13px; line-height:1.65; }
       .hero .date { position:static; display:block; margin-top:17px; font-size:14px; }
       .top-ticker { gap:12px; margin:0 -0.8rem; padding:10px 14px; border-left:0; font-size:12px; }
-      /* Mobile keeps the research interface full width. Account and download
+      /* Mobile keeps the research interface full width. Screening and download
          controls live in the main canvas; the desktop sidebar is not needed. */
       [data-testid="stSidebar"], [data-testid="stSidebarNav"] { display:none !important; }
       [data-testid="stAppViewContainer"] > .main { margin-left:0 !important; width:100% !important; }
       [data-testid="collapsedControl"] { display:none !important; }
-      .mobile-account { display:flex; justify-content:space-between; align-items:center; gap:10px; margin:0 0 7px; padding:9px 11px; background:#102B56; border-left:3px solid #E99A2F; box-shadow:0 7px 18px rgba(16,43,86,.12); }
-      .mobile-account b { display:block; color:#FFFFFF; font-size:12px; }
-      .mobile-account span { display:block; margin-top:2px; color:#C9D9F1; font-size:10px; }
       .mobile-tool-label { display:flex; justify-content:space-between; align-items:baseline; margin:10px 0 6px; padding:0 2px; color:#7085A3; }
       .mobile-tool-label span { color:#E28519; font:700 9px Arial,sans-serif; letter-spacing:.16em; }
       .mobile-tool-label b { color:#102B56; font-size:13px; }
@@ -362,7 +168,6 @@ st.markdown(
       .mobile-actions a { display:flex; align-items:center; justify-content:center; min-height:48px; padding:8px 7px; color:#102B56 !important; background:#FFFFFF; border:1px solid #B9CDE5; border-radius:4px; text-align:center; text-decoration:none; font-size:13px; font-weight:700; box-shadow:0 5px 12px rgba(16,43,86,.09); }
       .mobile-actions a:first-child { background:#E99A2F; color:#102B56 !important; border-color:#E99A2F; }
       .mobile-actions a:nth-child(2) { background:#102B56; color:#FFFFFF !important; border-color:#102B56; }
-      .mobile-actions a:last-child { grid-column:1 / -1; min-height:38px; background:#FFFFFF; color:#1F5AA6 !important; border-color:#C8D8EA; box-shadow:none; font-size:12px; }
       .mobile-actions a:hover { transform:translateY(-1px); }
       [data-testid="stMain"] details { background:#FFFFFF; border:1px solid #C8D8EA; border-radius:3px; margin-bottom:8px; box-shadow:none; }
       [data-testid="stMain"] details summary { color:#102B56; font-size:12px; font-weight:700; }
@@ -534,22 +339,6 @@ def reset_filters():
         st.session_state.pop(f"mobile_{key}", None)
 
 
-def apply_screen(payload):
-    allowed = {
-        "query_filter", "industry_filter", "rating_filter", "numeric_filter_enabled",
-        "price_min", "price_max", "premium_min", "premium_max", "ytm_min", "ytm_max",
-        "balance_min", "balance_max", "stock_price_min", "stock_price_max",
-        "stock_change_min", "stock_change_max", "stock_change_5d_min", "stock_change_5d_max",
-        "pool_mode", "sort_metric", "sort_direction",
-    }
-    for key, value in payload.items():
-        if key in allowed:
-            st.session_state[key] = value
-            st.session_state[f"mobile_{key}"] = value
-
-
-if not cloud_workspace_enabled():
-    init_user_db()
 metadata = json.loads((BASE / "data/metadata.json").read_text(encoding="utf-8"))
 bonds, market, supply = load_data(metadata["data_date"] + "-v4")
 try:
@@ -578,105 +367,14 @@ if "numeric_filter_enabled" not in st.session_state:
     st.session_state["numeric_filter_enabled"] = True
 if "mobile_numeric_filter_enabled" not in st.session_state:
     st.session_state["mobile_numeric_filter_enabled"] = True
-if "auth_user" not in st.session_state:
-    st.session_state["auth_user"] = None
-
-auth_user = st.session_state["auth_user"]
-if is_mobile or auth_user is None:
+if is_mobile:
     st.markdown(
-        '<div class="mobile-tool-label"><span>RESEARCH DESK</span><b>常用入口</b></div>',
+        '<div class="mobile-actions"><a href="#mobile-filter">个券筛选</a><a href="#bond-download">下载结果</a></div>',
         unsafe_allow_html=True,
     )
-    if auth_user:
-        st.markdown(
-            f'<div class="mobile-account"><b>研究工作台 · {auth_user["username"]}</b><span>已登录 · 可保存方案与同步自选债</span></div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.markdown(
-            '<div class="mobile-account"><b>个人研究工作台</b><span>登录后可保存筛选方案与自选债</span></div>',
-            unsafe_allow_html=True,
-        )
-    st.markdown(
-        f'<div class="mobile-actions"><a href="#{"workspace" if auth_user else "mobile-login"}">{"我的自选" if auth_user else "登录 / 注册"}</a><a href="#mobile-filter">个券筛选</a><a href="#bond-download">下载结果</a></div>',
-        unsafe_allow_html=True,
-    )
-    if auth_user is None:
-        st.markdown('<div id="mobile-login" class="section-anchor"></div>', unsafe_allow_html=True)
-        with st.expander("邮箱登录 / 注册 · 保存研究记录", expanded=False):
-            mobile_auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, key="mobile_auth_mode")
-            with st.form("mobile_account_form", clear_on_submit=False):
-                st.caption("邮箱登录后可跨设备同步。" if cloud_workspace_enabled() else "当前为本地工作台模式，账户和自选保存在本机。")
-                mobile_email = st.text_input("邮箱地址", placeholder="name@example.com", key="mobile_auth_email")
-                mobile_password = st.text_input("密码", type="password", placeholder="至少 8 个字符", key="mobile_auth_password")
-                mobile_submit = st.form_submit_button(mobile_auth_mode, width="stretch")
-            if mobile_submit:
-                if mobile_auth_mode == "注册":
-                    user, error = register_user(mobile_email, mobile_password)
-                else:
-                    user, error = authenticate_user(mobile_email, mobile_password)
-                if user:
-                    st.session_state["auth_user"] = user
-                    st.rerun()
-                if error:
-                    st.error(error)
 
 with st.sidebar:
     st.markdown('<div class="brand-lockup"><b>华泰证券</b><span>HUATAI SECURITIES</span></div>', unsafe_allow_html=True)
-    auth_user = st.session_state["auth_user"]
-    if auth_user is None:
-        with st.expander("账户登录 · 保存研究记录", expanded=is_mobile):
-            auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, label_visibility="collapsed")
-            with st.form("account_form", clear_on_submit=False):
-                if cloud_workspace_enabled():
-                    st.caption("云端多人模式：请使用邮箱注册和登录，方案与自选债将跨设备同步。")
-                auth_identity_label = "邮箱地址" if cloud_workspace_enabled() else "用户名"
-                auth_identity_placeholder = "name@example.com" if cloud_workspace_enabled() else "至少3个字符"
-                auth_name = st.text_input(auth_identity_label, placeholder=auth_identity_placeholder)
-                auth_password = st.text_input("密码", type="password", placeholder="至少8个字符")
-                auth_submit = st.form_submit_button(auth_mode, width="stretch")
-            if auth_submit:
-                if auth_mode == "注册":
-                    user, error = register_user(auth_name, auth_password)
-                    if error:
-                        st.error(error)
-                    else:
-                        st.session_state["auth_user"] = user
-                        st.rerun()
-                else:
-                    user, error = authenticate_user(auth_name, auth_password)
-                    if user:
-                        st.session_state["auth_user"] = user
-                        st.rerun()
-                    else:
-                        st.error(error or ("邮箱或密码不正确" if cloud_workspace_enabled() else "用户名或密码不正确"))
-    else:
-        st.markdown(
-            f'<div class="account-card"><small>PERSONAL RESEARCH DESK</small><b>{auth_user["username"]}</b></div>',
-            unsafe_allow_html=True,
-        )
-        if notice := st.session_state.pop("workspace_notice", None):
-            st.success(notice)
-        st.markdown('<a class="workspace-jump" href="#workspace">↓ 保存筛选方案 · 管理我的自选</a>', unsafe_allow_html=True)
-        plans = saved_screens(auth_user)
-        if plans:
-            plan_map = {plan["name"]: plan for plan in plans}
-            chosen_plan_name = st.selectbox("已保存筛选方案", list(plan_map), key="selected_saved_screen")
-            load_col, delete_col = st.columns(2)
-            with load_col:
-                if st.button("载入方案", width="stretch"):
-                    apply_screen(plan_map[chosen_plan_name]["payload"])
-                    st.rerun()
-            with delete_col:
-                if st.button("删除方案", width="stretch"):
-                    delete_screen(auth_user, plan_map[chosen_plan_name]["id"])
-                    st.rerun()
-        else:
-            st.caption("尚未保存筛选方案")
-        if st.button("退出登录", width="stretch"):
-            st.session_state["auth_user"] = None
-            st.rerun()
-        st.markdown("---")
     st.markdown("### 个券筛选")
     st.button("清空筛选 · 查看全市场", on_click=reset_filters, width="stretch")
     query = st.text_input("名称 / 代码 / 正股", placeholder="输入关键词", key="query_filter")
@@ -775,7 +473,7 @@ st.markdown(
 
 st.markdown((BASE / "dashboard.css").read_text(encoding="utf-8"), unsafe_allow_html=True)
 if not is_mobile:
-    st.markdown(f'<div class="desk-actions"><a href="#{"workspace" if auth_user else "mobile-login"}">{"我的自选 / 保存方案" if auth_user else "账户登录 / 注册"}</a><a href="#section-04">个券筛选</a><a href="#bond-download">下载数据</a></div>', unsafe_allow_html=True)
+    st.markdown('<div class="desk-actions"><a href="#section-04">个券筛选</a><a href="#bond-download">下载数据</a></div>', unsafe_allow_html=True)
 st.caption(f"数据截至 {data_date_iso} · 周度文件快照 · 页面更新不代表实时行情")
 section_head("01 / MARKET", "市场总览", "核心指标均来自所提供数据库")
 metrics = [
@@ -1035,112 +733,6 @@ with download_col:
         mime="text/csv",
         width="stretch",
     )
-
-auth_user = st.session_state["auth_user"]
-if auth_user:
-    st.markdown(
-        f'<div id="workspace" class="workspace-strip"><b>{auth_user["username"]} 的研究工作台</b>　'
-        f'保存筛选方案、建立个券自选，并在下次登录后继续使用。</div>',
-        unsafe_allow_html=True,
-    )
-    if is_mobile:
-        with st.expander("我的筛选方案 · 载入 / 删除", expanded=False):
-            mobile_plans = saved_screens(auth_user)
-            if mobile_plans:
-                mobile_plan_map = {plan["name"]: plan for plan in mobile_plans}
-                mobile_plan_name = st.selectbox("已保存方案", list(mobile_plan_map), key="mobile_saved_screen")
-                mobile_load_col, mobile_delete_col = st.columns(2)
-                with mobile_load_col:
-                    st.button(
-                        "载入方案",
-                        key="mobile_load_screen",
-                        on_click=apply_screen,
-                        args=(mobile_plan_map[mobile_plan_name]["payload"],),
-                        width="stretch",
-                    )
-                with mobile_delete_col:
-                    st.button(
-                        "删除方案",
-                        key="mobile_delete_screen",
-                        on_click=delete_screen,
-                        args=(auth_user, mobile_plan_map[mobile_plan_name]["id"]),
-                        width="stretch",
-                    )
-            else:
-                st.caption("尚未保存筛选方案")
-            if st.button("退出登录", key="mobile_logout", width="stretch"):
-                st.session_state["auth_user"] = None
-                st.rerun()
-    workspace_left, workspace_right = st.columns(2)
-    with workspace_left:
-        with st.form("save_screen_form", clear_on_submit=True):
-            screen_name = st.text_input("筛选方案名称", placeholder="例如：低溢价银行")
-            save_screen_submit = st.form_submit_button("保存当前筛选方案", width="stretch")
-        if save_screen_submit:
-            payload = {
-                "query_filter": query,
-                "industry_filter": list(selected_industries),
-                "rating_filter": list(selected_ratings),
-                "numeric_filter_enabled": numeric_filter_enabled,
-                "price_min": price_min, "price_max": price_max,
-                "premium_min": premium_min, "premium_max": premium_max,
-                "ytm_min": ytm_min, "ytm_max": ytm_max,
-                "balance_min": balance_min, "balance_max": balance_max,
-                "stock_price_min": stock_price_min, "stock_price_max": stock_price_max,
-                "stock_change_min": stock_change_min, "stock_change_max": stock_change_max,
-                "stock_change_5d_min": stock_change_5d_min, "stock_change_5d_max": stock_change_5d_max,
-                "pool_mode": pool_mode,
-                "sort_metric": sort_label,
-                "sort_direction": sort_order,
-            }
-            if save_screen(auth_user, screen_name, payload):
-                st.session_state["workspace_notice"] = f"已保存方案：{screen_name.strip()}"
-                st.rerun()
-            else:
-                st.warning("请填写筛选方案名称")
-    with workspace_right:
-        bond_lookup = {
-            f"{row.name} · {row.code}": row.code
-            for row in filtered[["name", "code"]].drop_duplicates().itertuples(index=False)
-        }
-        with st.form("watchlist_form", clear_on_submit=True):
-            selected_watch_labels = st.multiselect(
-                "从当前结果加入自选", list(bond_lookup), placeholder="可选择多只个券"
-            )
-            watchlist_submit = st.form_submit_button("加入我的自选", width="stretch")
-        if watchlist_submit:
-            add_watchlist(auth_user, [bond_lookup[label] for label in selected_watch_labels])
-            st.session_state["workspace_notice"] = f"已加入 {len(selected_watch_labels)} 只个券至我的自选"
-            st.rerun()
-
-    personal_codes = watchlist_codes(auth_user)
-    if personal_codes:
-        st.markdown("#### 我的自选")
-        watch_table = bonds[bonds["code"].isin(personal_codes)].copy()
-        watch_table["自选顺序"] = watch_table["code"].map({code: idx for idx, code in enumerate(personal_codes)})
-        watch_table = watch_table.sort_values("自选顺序")
-        remove_lookup = {f"{row.name} · {row.code}": row.code for row in watch_table.itertuples(index=False)}
-        remove_col, action_col = st.columns([2, 1])
-        with remove_col:
-            selected_remove_labels = st.multiselect(
-                "移除自选", list(remove_lookup), key="remove_watchlist_labels", placeholder="选择需要移除的个券"
-            )
-        with action_col:
-            st.write("")
-            st.write("")
-            if st.button("移除所选", width="stretch"):
-                remove_watchlist(auth_user, [remove_lookup[label] for label in selected_remove_labels])
-                st.rerun()
-        st.dataframe(
-            watch_table.rename(columns={
-                "name": "转债名称", "code": "转债代码", "stock_name": "正股名称", "stock_code": "正股代码",
-                "price": "价格", "stock_price": "正股价格", "stock_change": "正股涨跌",
-                "premium": "转股溢价率", "ytm": "YTM", "rating": "评级",
-            })[["转债名称", "转债代码", "正股名称", "正股代码", "价格", "正股价格", "正股涨跌", "转股溢价率", "YTM", "评级"]],
-            width="stretch", hide_index=True, height=min(360, 38 + len(watch_table) * 35),
-        )
-    else:
-        st.caption("我的自选暂为空，可从当前筛选结果中加入个券。")
 
 summary_values = [
     ("筛选结果", len(filtered), "只"),
