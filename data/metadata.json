@@ -2,7 +2,9 @@
   "data_date": "2026-10-23",
   "source": "【华泰固收】 可转债数据库（新）-20261023纯享版(2).xlsx",
   "bond_count": 312,
-  "stock_names_missing": 19,
+  "stock_names_missing": 0,
+  "stock_name_missing_codes": [],
+  "stock_name_lookup_warning": "",
   "quantiles": [
     {
       "window": "2018年以来",

@@ -6,6 +6,7 @@ import math
 import altair as alt
 import pandas as pd
 import streamlit as st
+from stock_names import MISSING_NAME, clean_stock_name, normalize_stock_code, read_name_cache
 from research_panels import research_snapshot, valuation_dashboard, issuance_dashboard, weekly_report
 
 
@@ -242,6 +243,11 @@ def load_data(data_version):
     supply = pd.read_csv(BASE / "data" / "supply_history.csv", parse_dates=["date"])
     if "stock_name" not in bonds.columns:
         bonds["stock_name"] = ""
+    names = read_name_cache(BASE / "data" / "stock_names.json")
+    bonds["stock_name"] = [
+        clean_stock_name(name) or names.get(normalize_stock_code(code), "")
+        for code, name in zip(bonds["stock_code"], bonds["stock_name"])
+    ]
     return bonds, market, supply
 
 
@@ -252,6 +258,8 @@ def fmt(value, digits=2):
 
 
 def bond_output_table(frame):
+    frame = frame.copy()
+    frame["stock_name"] = frame["stock_name"].map(lambda value: clean_stock_name(value) or MISSING_NAME)
     return frame.rename(
         columns={
             "name": "转债名称", "code": "转债代码", "stock_code": "正股代码", "stock_name": "正股名称",
@@ -273,7 +281,7 @@ def mobile_bond_cards(frame):
     for row in frame.itertuples(index=False):
         bond_move = "up" if row.change > 0 else "down" if row.change < 0 else "flat"
         stock_move = "up" if row.stock_change > 0 else "down" if row.stock_change < 0 else "flat"
-        stock_name = "—" if pd.isna(row.stock_name) or not str(row.stock_name).strip() else str(row.stock_name)
+        stock_name = clean_stock_name(row.stock_name) or MISSING_NAME
         cards.append(
             '<article class="mobile-bond-card">'
             f'<div class="mobile-bond-head"><div><b>{html.escape(str(row.name))}</b>'
@@ -340,7 +348,7 @@ def reset_filters():
 
 
 metadata = json.loads((BASE / "data/metadata.json").read_text(encoding="utf-8"))
-bonds, market, supply = load_data(metadata["data_date"] + "-v4")
+bonds, market, supply = load_data(metadata["data_date"] + "-stock-names-v5")
 try:
     user_agent = str(st.context.headers.get("User-Agent", "")).lower()
 except Exception:
