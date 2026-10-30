@@ -11,13 +11,14 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 import supabase_backend as supabase
+from research_panels import research_snapshot, valuation_dashboard, issuance_dashboard
 
 
 st.set_page_config(
     page_title="可转债数据库",
     page_icon="◆",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
 BASE = Path(__file__).parent
@@ -549,7 +550,8 @@ def apply_screen(payload):
 
 if not cloud_workspace_enabled():
     init_user_db()
-bonds, market, supply = load_data("2026-08-14-stock-schema-v3")
+metadata = json.loads((BASE / "data/metadata.json").read_text(encoding="utf-8"))
+bonds, market, supply = load_data(metadata["data_date"] + "-v4")
 try:
     user_agent = str(st.context.headers.get("User-Agent", "")).lower()
 except Exception:
@@ -561,11 +563,11 @@ is_mobile = (
 latest = market.sort_values("date").iloc[-1]
 latest_supply = supply.sort_values("date").iloc[-1]
 data_date = pd.Timestamp(latest["date"])
-report_date = pd.Timestamp("2026-08-17")
+report_date = data_date
 data_date_iso = report_date.strftime("%Y-%m-%d")
 data_date_dot = report_date.strftime("%Y.%m.%d")
 data_date_slash = report_date.strftime("%Y / %m / %d")
-year_end = supply[supply["date"] <= pd.Timestamp("2025-12-31")].sort_values("date").iloc[-1]
+year_end = supply[supply["date"] < pd.Timestamp(data_date.year, 1, 1)].sort_values("date").iloc[-1]
 ytd_balance_change = latest_supply["balance"] - year_end["balance"]
 
 if "industry_filter" not in st.session_state:
@@ -580,7 +582,7 @@ if "auth_user" not in st.session_state:
     st.session_state["auth_user"] = None
 
 auth_user = st.session_state["auth_user"]
-if is_mobile:
+if is_mobile or auth_user is None:
     st.markdown(
         '<div class="mobile-tool-label"><span>RESEARCH DESK</span><b>常用入口</b></div>',
         unsafe_allow_html=True,
@@ -604,7 +606,7 @@ if is_mobile:
         with st.expander("邮箱登录 / 注册 · 保存研究记录", expanded=False):
             mobile_auth_mode = st.radio("账户模式", ["登录", "注册"], horizontal=True, key="mobile_auth_mode")
             with st.form("mobile_account_form", clear_on_submit=False):
-                st.caption("使用邮箱登录后，筛选方案和自选债将自动跨设备同步。")
+                st.caption("邮箱登录后可跨设备同步。" if cloud_workspace_enabled() else "当前为本地工作台模式，账户和自选保存在本机。")
                 mobile_email = st.text_input("邮箱地址", placeholder="name@example.com", key="mobile_auth_email")
                 mobile_password = st.text_input("密码", type="password", placeholder="至少 8 个字符", key="mobile_auth_password")
                 mobile_submit = st.form_submit_button(mobile_auth_mode, width="stretch")
@@ -761,7 +763,7 @@ st.markdown(
     <nav class="chapter-nav" aria-label="页面章节导航">
       <a href="#section-01"><b>01 / MARKET</b>市场总览</a>
       <a href="#section-02"><b>02 / VALUATION</b>估值分布</a>
-      <a href="#section-03"><b>03 / WEEKLY VIEW</b>本周观点</a>
+      <a href="#section-03"><b>03 / WEEKLY VIEW</b>本期观察</a>
       <a href="#section-04"><b>04 / BOND UNIVERSE</b>个券机会池</a>
       <a href="#section-05"><b>05 / STRUCTURE</b>行业分布</a>
       <a href="#section-06"><b>06 / RATING</b>评级矩阵</a>
@@ -771,8 +773,11 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown((BASE / "dashboard.css").read_text(encoding="utf-8"), unsafe_allow_html=True)
+if not is_mobile:
+    st.markdown(f'<div class="desk-actions"><a href="#{"workspace" if auth_user else "mobile-login"}">{"我的自选 / 保存方案" if auth_user else "账户登录 / 注册"}</a><a href="#section-04">个券筛选</a><a href="#bond-download">下载数据</a></div>', unsafe_allow_html=True)
+st.caption(f"数据截至 {data_date_iso} · 周度文件快照 · 页面更新不代表实时行情")
 section_head("01 / MARKET", "市场总览", "核心指标均来自所提供数据库")
-metric_cols = st.columns(6)
 metrics = [
     ("市场只数", fmt(latest_supply["count"], 0), "只", False),
     ("价格中位数", fmt(latest["price_median"]), "元", False),
@@ -781,9 +786,9 @@ metrics = [
     ("YTM中位数", fmt(latest["ytm_median"]), "%", False),
     ("隐含波动率", fmt(latest["implied_vol"]), "%", True),
 ]
-for col, item in zip(metric_cols, metrics):
-    with col:
-        metric_card(*item)
+st.markdown('<div class="metrics-grid">'+''.join(
+    f'<div class="metric-card{" warm" if warm else ""}"><span>{label}</span><b>{value}</b><small>{unit}</small></div>'
+    for label,value,unit,warm in metrics)+'</div>', unsafe_allow_html=True)
 
 trend_metric_col, trend_range_col = st.columns([1.15, 1])
 with trend_metric_col:
@@ -824,6 +829,7 @@ line = (
     .properties(height=285)
 )
 st.altair_chart(line, width="stretch")
+valuation_dashboard(market, metadata, is_mobile)
 
 base_filtered = bonds.copy()
 if query:
@@ -972,16 +978,11 @@ if len(valid_scatter):
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
 
-section_head("03 / WEEKLY VIEW", "本周观点")
-st.markdown(
-    """
-    <div class="weekly">
-      <h3>策略方面，上周转债明显回撤更多是对高估值的修正，股指关键点位部分资金加大博弈力度，但继续大跌的风险有限。我们建议保持偏中性仓位，重点关注性价比更优的低价权重品种。</h3>
-      <p>上周转债大幅调整，转债估值也被明显压缩。关键点位附近，以当前的量能难以顺利突破，部分资金选择撤出。但周五ETF仍有小幅流入、新券仍顶格开盘，转债市场需求和流动性短期不弱。我们认为近日调整更多是对前期双高品种溢价率再度走高的修正，叠加短期供给阶段性扰动，后续大幅回撤的风险相对有限。另外，本波下跌低价品种未能幸免，回吐了部分前期修复涨幅。回撤之后，当前低价权重品种普遍不贵，股性银行转债溢价率在10%以内，生猪、光伏品种价格也处于相对低位。综合来看，未来一年供求仍偏紧、股市慢牛预期仍在，转债短期风险有限。建议继续维持中性仓位，交易低价修复机会，低价品种短期配置价值优于纯债。股性品种优先关注次新或溢价率接近零的标的，规避估值风险。后续双高品种的条款风险仍不小，强赎预期不够明确的情况下建议尽早规避。</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+section_head("03 / WEEKLY VIEW", "本期数据观察", "按数据库最近5个交易日计算")
+research_snapshot(bonds, market, supply)
+st.caption("以下为此前已发布观点，保留原始日期，不代表本周新观点。")
+with st.expander("历史策略观点 · 2026-08-17", expanded=False):
+    st.markdown("此前建议维持中性仓位，关注低价权重品种、次新或溢价率接近零的股性标的，并留意强赎等条款风险。")
 
 section_head("04 / BOND UNIVERSE", "个券机会池", "筛选、排序与明细联动")
 pool_mode = st.radio(
@@ -1100,7 +1101,7 @@ if auth_user:
     with workspace_right:
         bond_lookup = {
             f"{row.name} · {row.code}": row.code
-            for row in filtered[["name", "code"]].drop_duplicates().head(308).itertuples(index=False)
+            for row in filtered[["name", "code"]].drop_duplicates().itertuples(index=False)
         }
         with st.form("watchlist_form", clear_on_submit=True):
             selected_watch_labels = st.multiselect(
@@ -1141,7 +1142,6 @@ if auth_user:
     else:
         st.caption("我的自选暂为空，可从当前筛选结果中加入个券。")
 
-summary_cols = st.columns(5)
 summary_values = [
     ("筛选结果", len(filtered), "只"),
     ("价格中位数", filtered["price"].median(), "元"),
@@ -1149,12 +1149,15 @@ summary_values = [
     ("YTM中位数", filtered["ytm"].median(), "%"),
     ("成交额合计", filtered["turnover"].sum() / 100, "亿元"),
 ]
-for col, (label, value, unit) in zip(summary_cols, summary_values):
-    with col:
-        metric_card(label, fmt(value, 0 if label == "筛选结果" else 2), unit)
+st.markdown('<div class="metrics-grid">'+''.join(
+    f'<div class="metric-card"><span>{label}</span><b>{fmt(value, 0 if label == "筛选结果" else 2)}</b><small>{unit}</small></div>'
+    for label,value,unit in summary_values)+'</div>', unsafe_allow_html=True)
 
 table = bond_output_table(filtered)
 if is_mobile:
+    mobile_display = st.radio("明细展示", ["紧凑表格", "双列卡片"], horizontal=True)
+    if mobile_display == "紧凑表格":
+        st.caption("表格支持左右滑动、点击列标题排序；下载包含完整字段。")
     page_size = 15
     page_count = max(1, math.ceil(len(filtered) / page_size))
     if st.session_state.get("mobile_result_page", 1) > page_count:
@@ -1166,7 +1169,12 @@ if is_mobile:
         key="mobile_result_page",
     )
     page_start = (mobile_page - 1) * page_size
-    st.markdown(mobile_bond_cards(filtered.iloc[page_start : page_start + page_size]), unsafe_allow_html=True)
+    if mobile_display == "双列卡片":
+        st.markdown(mobile_bond_cards(filtered.iloc[page_start : page_start + page_size]), unsafe_allow_html=True)
+    else:
+        st.dataframe(table.iloc[page_start : page_start + page_size], width="stretch", height=390, hide_index=True,
+                     column_order=["转债名称", "价格", "转股溢价率", "YTM", "正股名称", "正股价格", "成交额(百万元)", "评级"],
+                     column_config={"价格": st.column_config.NumberColumn(format="%.3f"), "转股溢价率": st.column_config.NumberColumn(format="%.2f%%"), "YTM": st.column_config.NumberColumn(format="%.2f%%")})
     st.caption(f"每页 {page_size} 只；当前显示第 {mobile_page} 页，完整结果可在上方下载。")
 else:
     st.dataframe(
@@ -1240,6 +1248,8 @@ labels = heatmap.mark_text(font="Arial", fontSize=16).encode(text="只数:Q", co
 st.altair_chart(heatmap + labels, width="stretch")
 
 section_head("07 / SUPPLY", "存量与供给", "余额变化采用年末存量对比口径")
+issuance_dashboard(metadata, data_date)
+st.caption("市场存量按「转债供给」表展示；个券余额为「转债个券数据」表逐券口径，两表原始余额不完全一致。")
 supply_cols = st.columns([1, 1, 1, 2.2])
 with supply_cols[0]:
     metric_card("最新余额", fmt(latest_supply["balance"]), "亿元")
