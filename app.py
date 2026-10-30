@@ -11,7 +11,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 import supabase_backend as supabase
-from research_panels import research_snapshot, valuation_dashboard, issuance_dashboard
+from research_panels import research_snapshot, valuation_dashboard, issuance_dashboard, weekly_report
 
 
 st.set_page_config(
@@ -763,7 +763,7 @@ st.markdown(
     <nav class="chapter-nav" aria-label="页面章节导航">
       <a href="#section-01"><b>01 / MARKET</b>市场总览</a>
       <a href="#section-02"><b>02 / VALUATION</b>估值分布</a>
-      <a href="#section-03"><b>03 / WEEKLY VIEW</b>本期观察</a>
+      <a href="#section-03"><b>03 / WEEKLY VIEW</b>策略观点</a>
       <a href="#section-04"><b>04 / BOND UNIVERSE</b>个券机会池</a>
       <a href="#section-05"><b>05 / STRUCTURE</b>行业分布</a>
       <a href="#section-06"><b>06 / RATING</b>评级矩阵</a>
@@ -978,11 +978,11 @@ if len(valid_scatter):
 else:
     st.info("当前筛选条件下没有可绘制的个券。")
 
-section_head("03 / WEEKLY VIEW", "本期数据观察", "按数据库最近5个交易日计算")
-research_snapshot(bonds, market, supply)
-st.caption("以下为此前已发布观点，保留原始日期，不代表本周新观点。")
-with st.expander("历史策略观点 · 2026-08-17", expanded=False):
-    st.markdown("此前建议维持中性仓位，关注低价权重品种、次新或溢价率接近零的股性标的，并留意强赎等条款风险。")
+weekly_view = json.loads((BASE / "data/weekly_view.json").read_text(encoding="utf-8"))
+section_head("03 / WEEKLY VIEW", "策略观点", f"报告日期 {weekly_view['report_date']}")
+weekly_report(weekly_view)
+with st.expander("本期市场数据观察 · 最近5个交易日", expanded=False):
+    research_snapshot(bonds, market, supply)
 
 section_head("04 / BOND UNIVERSE", "个券机会池", "筛选、排序与明细联动")
 pool_mode = st.radio(

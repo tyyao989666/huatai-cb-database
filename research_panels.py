@@ -7,6 +7,16 @@ import streamlit as st
 BLUE='#245e99'
 ORANGE='#e99a2f'
 
+def weekly_report(view):
+    st.caption(f"{view['source']} · 报告日期 {view['report_date']} · 原文节选")
+    st.markdown(
+        '<article class="report-view"><div class="report-title">'+html.escape(view['title'])+'</div>'
+        '<h3>'+html.escape(view['headline'])+'</h3><p>'+html.escape(view['strategy'])+'</p></article>',
+        unsafe_allow_html=True)
+    for section in view.get('sections',[]):
+        with st.expander(section['title'],expanded=False):
+            st.write(section['text'])
+
 def research_snapshot(bonds, market, supply):
     ordered=market.sort_values('date').dropna(subset=['price_median','premium_median'])
     last=ordered.iloc[-1]
